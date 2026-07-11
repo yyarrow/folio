@@ -1,0 +1,7 @@
+node_modules
+.output
+.wxt
+.DS_Store
+*.zip
+coverage
+web-ext.config.ts
