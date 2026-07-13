@@ -28,7 +28,7 @@ bun test
 bun run build
 ```
 
-The Chrome build is written to `.output/chrome-mv3/`.
+The Chrome build is written to `output/chrome-mv3/`.
 
 ## Data model
 
