@@ -233,7 +233,11 @@ export default function App() {
               <footer>
                 <div className="note-meta">
                   <time>{formatNoteDate(note.updatedAt)}</time>
-                  {note.url && <a href={note.url} target="_blank" rel="noreferrer">{displayDomain(note.url)}</a>}
+                  {note.url && (
+                    <a href={note.url} target="_blank" rel="noreferrer" title={note.title || displayDomain(note.url)}>
+                      {note.title || displayDomain(note.url)}
+                    </a>
+                  )}
                 </div>
                 <div className="note-actions">
                   <button onClick={() => handleEdit(note)}>编辑</button>

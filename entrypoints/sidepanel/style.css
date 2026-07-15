@@ -103,8 +103,9 @@ button { color: inherit; }
 .note-tags { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 9px; }
 .note-tags span { color: #8d6e31; font-size: 9px; }
 .note-card footer { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 10px; padding-top: 8px; border-top: 1px solid #f0eadf; }
-.note-meta { display: flex; min-width: 0; align-items: center; gap: 7px; color: #a1998b; font-size: 9px; }
-.note-meta a { max-width: 112px; overflow: hidden; color: #91805d; text-decoration: none; text-overflow: ellipsis; white-space: nowrap; }
+.note-meta { display: flex; flex: 1; min-width: 0; align-items: center; gap: 7px; color: #a1998b; font-size: 9px; }
+.note-meta time { flex: none; }
+.note-meta a { min-width: 0; overflow: hidden; color: #91805d; text-decoration: none; text-overflow: ellipsis; white-space: nowrap; }
 .note-meta a::before { content: "·"; margin-right: 7px; color: #b2ab9e; }
 .note-actions { display: flex; gap: 2px; opacity: 0; transition: opacity 120ms ease; }
 .note-card:hover .note-actions, .note-actions:focus-within { opacity: 1; }
