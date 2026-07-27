@@ -1,6 +1,9 @@
 # Folio
 
-Folio is a small browser side panel for capturing thoughts without leaving the page you are reading.
+Folio is a small, focused place to capture thoughts without leaving what you are reading. It has two clients:
+
+- a desktop browser side panel that keeps notes locally
+- an installable Android web app that syncs notes through a private cloud store
 
 ## What it does
 
@@ -11,7 +14,13 @@ Folio is a small browser side panel for capturing thoughts without leaving the p
 - Searches, edits, and deletes saved notes
 - Exports the complete collection as Markdown or JSON
 
-Folio does not collect full page content, use a remote service, or send notes anywhere.
+The browser extension does not collect full page content or send notes anywhere. The Android app only syncs notes after you sign in with your private Folio access key.
+
+## Android
+
+Open [folio-steel-psi.vercel.app](https://folio-steel-psi.vercel.app) in Chrome, sign in, then choose **Install app** or **Add to Home screen** from Chrome's menu. Once installed, Folio appears in Android's share sheet, so text and links can be sent directly from WeRead or another app.
+
+Captured notes are saved locally first. If the phone is offline, Folio queues them and syncs automatically when the connection returns.
 
 ## Development
 
@@ -30,6 +39,19 @@ bun run build
 
 The Chrome build is written to `output/chrome-mv3/`.
 
+The Android PWA lives in `web/` and is an independent Next.js app:
+
+```bash
+cd web
+bun install
+cp .env.example .env.local
+bun run check
+bun test
+bun run dev
+```
+
+Production requires `DATABASE_URL`, `FOLIO_ACCESS_KEY`, and `FOLIO_SESSION_SECRET`. The current deployment uses Vercel and a Neon Postgres database in Singapore.
+
 ## Data model
 
-Each note stores its text, optional page context, extracted tags, and creation/update timestamps. Data remains in the extension's IndexedDB until the user deletes it or uninstalls the extension. Use the export menu for backups.
+Each note stores its text, optional page context, extracted tags, and creation/update timestamps. Extension notes remain in that extension's IndexedDB; Android notes are cached in the PWA's IndexedDB and synchronized to Postgres. The two stores stay intentionally separate in this first mobile release.
