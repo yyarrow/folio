@@ -2,7 +2,7 @@
 
 Folio is a small, focused place to capture thoughts without leaving what you are reading. It has two clients:
 
-- a desktop browser side panel that keeps notes locally
+- a desktop browser side panel with an offline local cache and optional cloud sync
 - an installable Android web app that syncs notes through a private cloud store
 
 ## What it does
@@ -14,7 +14,11 @@ Folio is a small, focused place to capture thoughts without leaving what you are
 - Searches, edits, and deletes saved notes
 - Exports the complete collection as Markdown or JSON
 
-The browser extension does not collect full page content or send notes anywhere. The Android app only syncs notes after you sign in with your private Folio access key.
+Folio does not collect full page content. Notes stay local until cloud sync is explicitly connected with your private Folio access code.
+
+## Desktop cloud sync
+
+Open the extension menu, enter the same access code used by the web app, and choose **Connect and sync**. The first sync merges existing notes from both sides; later saves, edits, and deletions sync automatically. Folio keeps working offline and reconciles changes when the connection returns.
 
 ## Android
 
@@ -54,4 +58,4 @@ Production requires `DATABASE_URL`, `FOLIO_ACCESS_KEY`, and `FOLIO_SESSION_SECRE
 
 ## Data model
 
-Each note stores its text, optional page context, extracted tags, and creation/update timestamps. Extension notes remain in that extension's IndexedDB; Android notes are cached in the PWA's IndexedDB and synchronized to Postgres. The two stores stay intentionally separate in this first mobile release.
+Each note stores its text, optional page context, extracted tags, and creation/update timestamps. The extension and Android app both keep local IndexedDB caches and synchronize to Postgres. Conflicts use the newest update, while deletion markers prevent removed notes from reappearing after an offline sync.

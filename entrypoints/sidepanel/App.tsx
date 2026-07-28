@@ -1,7 +1,14 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { type FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { downloadExport } from "../../lib/export";
 import { listNotes, removeNote, saveNote } from "../../lib/db";
 import { clearDraft, loadDraft, persistDraft } from "../../lib/draft";
+import {
+  CloudSyncError,
+  connectCloud,
+  disconnectCloud,
+  isCloudConnected,
+  syncCloud,
+} from "../../lib/sync";
 import {
   displayDomain,
   extractTags,
@@ -11,6 +18,7 @@ import {
 import type { Note, PageContext } from "../../lib/types";
 
 const MAX_SELECTION_LENGTH = 12_000;
+type SyncStatus = "local" | "syncing" | "synced" | "offline" | "error";
 
 async function readPageContext(): Promise<PageContext> {
   const [tab] = await browser.tabs.query({ active: true, currentWindow: true });
@@ -56,14 +64,50 @@ export default function App() {
   const [status, setStatus] = useState<"idle" | "saving" | "saved">("idle");
   const [showMenu, setShowMenu] = useState(false);
   const [ready, setReady] = useState(false);
+  const [connected, setConnected] = useState(false);
+  const [syncStatus, setSyncStatus] = useState<SyncStatus>("local");
+  const [accessCode, setAccessCode] = useState("");
+  const [syncMessage, setSyncMessage] = useState("");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const refreshNotes = useCallback(async () => setNotes(await listNotes()), []);
   const refreshContext = useCallback(async () => setContext(await readPageContext()), []);
 
+  const runSync = useCallback(async (showFeedback = false) => {
+    setSyncStatus("syncing");
+    if (showFeedback) setSyncMessage("");
+    try {
+      const didSync = await syncCloud();
+      if (!didSync) {
+        setConnected(false);
+        setSyncStatus("local");
+        return;
+      }
+      await refreshNotes();
+      setConnected(true);
+      setSyncStatus("synced");
+      if (showFeedback) setSyncMessage("同步完成");
+    } catch (error) {
+      if (error instanceof CloudSyncError && error.code === "unauthorized") {
+        await disconnectCloud();
+        setConnected(false);
+        setSyncStatus("error");
+        setSyncMessage("访问码已失效，请重新连接。");
+      } else {
+        setSyncStatus("offline");
+        if (showFeedback) setSyncMessage("暂时无法连接，笔记已保存在本地。");
+      }
+    }
+  }, [refreshNotes]);
+
   useEffect(() => {
     void (async () => {
-      const [draft] = await Promise.all([loadDraft(), refreshNotes()]);
+      const [draft, cloudConnected] = await Promise.all([
+        loadDraft(),
+        isCloudConnected(),
+        refreshNotes(),
+      ]);
+      setConnected(cloudConnected);
       if (draft) {
         setContent(draft.content);
         setContext(draft.context);
@@ -71,10 +115,17 @@ export default function App() {
       } else {
         await refreshContext();
       }
+      if (cloudConnected) await runSync();
       setReady(true);
       window.setTimeout(() => textareaRef.current?.focus(), 60);
     })();
-  }, [refreshContext, refreshNotes]);
+  }, [refreshContext, refreshNotes, runSync]);
+
+  useEffect(() => {
+    const handleOnline = () => void runSync();
+    window.addEventListener("online", handleOnline);
+    return () => window.removeEventListener("online", handleOnline);
+  }, [runSync]);
 
   useEffect(() => {
     if (!ready) return;
@@ -127,6 +178,7 @@ export default function App() {
     await saveNote(note);
     await clearDraft();
     await refreshNotes();
+    if (connected) await runSync();
     setStatus("saved");
     window.setTimeout(() => void resetComposer(), 420);
   }
@@ -145,7 +197,45 @@ export default function App() {
     await removeNote(note.id);
     if (editingId === note.id) await resetComposer();
     await refreshNotes();
+    if (connected) await runSync();
   }
+
+  async function handleConnect(event: FormEvent) {
+    event.preventDefault();
+    setSyncStatus("syncing");
+    setSyncMessage("");
+    try {
+      await connectCloud(accessCode);
+      setConnected(true);
+      setAccessCode("");
+      setSyncStatus("synced");
+      setSyncMessage("已连接，现有笔记已同步。");
+      await refreshNotes();
+    } catch (error) {
+      if (error instanceof CloudSyncError && error.code === "unauthorized") {
+        setSyncStatus("error");
+        setSyncMessage("访问码不正确。");
+      } else {
+        setSyncStatus("offline");
+        setSyncMessage("暂时无法连接云端。");
+      }
+    }
+  }
+
+  async function handleDisconnect() {
+    await disconnectCloud();
+    setConnected(false);
+    setSyncStatus("local");
+    setSyncMessage("已断开，笔记仍保留在本地。");
+  }
+
+  const syncLabel: Record<SyncStatus, string> = {
+    local: "本地",
+    syncing: "同步中",
+    synced: "已同步",
+    offline: "待同步",
+    error: "同步失败",
+  };
 
   return (
     <main className="app-shell">
@@ -155,12 +245,35 @@ export default function App() {
           <span>Folio</span>
         </div>
         <div className="top-actions">
-          <span className="local-status"><i /> 本地</span>
+          <span className={`local-status ${syncStatus}`}><i /> {syncLabel[syncStatus]}</span>
           <button className="icon-button" onClick={() => setShowMenu((open) => !open)} aria-label="More options">•••</button>
           {showMenu && (
             <div className="export-menu">
+              {connected ? (
+                <>
+                  <button onClick={() => void runSync(true)}>立即同步</button>
+                  <button onClick={() => void handleDisconnect()}>断开云端</button>
+                </>
+              ) : (
+                <form className="sync-connect" onSubmit={(event) => void handleConnect(event)}>
+                  <label htmlFor="cloud-access-code">连接云端</label>
+                  <input
+                    id="cloud-access-code"
+                    type="password"
+                    value={accessCode}
+                    onChange={(event) => setAccessCode(event.target.value)}
+                    placeholder="输入访问码"
+                    autoComplete="current-password"
+                  />
+                  <button className="connect-button" disabled={!accessCode.trim() || syncStatus === "syncing"}>
+                    {syncStatus === "syncing" ? "连接中…" : "连接并同步"}
+                  </button>
+                </form>
+              )}
+              <div className="menu-divider" />
               <button onClick={() => { downloadExport(notes, "markdown"); setShowMenu(false); }}>导出 Markdown</button>
               <button onClick={() => { downloadExport(notes, "json"); setShowMenu(false); }}>导出 JSON</button>
+              {syncMessage && <p className="sync-message" role="status">{syncMessage}</p>}
             </div>
           )}
         </div>

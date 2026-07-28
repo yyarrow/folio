@@ -4,12 +4,11 @@ import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "re
 import {
   clearLocalData,
   consumeSharedContext,
+  applySyncState,
+  getLocalSyncState,
   listLocalNotes,
-  listPendingNotes,
-  markNoteSynced,
+  queueDeletion,
   queueNote,
-  removeLocalNote,
-  replaceCachedNotes,
 } from "@/lib/client-db";
 import {
   displayDomain,
@@ -17,7 +16,7 @@ import {
   formatNoteDate,
   normalizeSharedContext,
 } from "@/lib/notes";
-import type { Note, PageContext } from "@/lib/types";
+import type { Note, PageContext, SyncState } from "@/lib/types";
 
 type SessionState = "checking" | "signed-in" | "signed-out" | "offline";
 type SaveState = "idle" | "saving" | "saved" | "queued";
@@ -49,22 +48,15 @@ export default function Home() {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const syncFromCloud = useCallback(async () => {
-    for (const note of await listPendingNotes()) {
-      const response = await fetch("/api/notes", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify(note),
-      });
-      if (response.status === 401) throw new Error("AUTH");
-      if (!response.ok) throw new Error("SYNC");
-      await markNoteSynced(note.id);
-    }
-
-    const response = await fetch("/api/notes", { cache: "no-store" });
+    const response = await fetch("/api/sync", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(await getLocalSyncState()),
+    });
     if (response.status === 401) throw new Error("AUTH");
     if (!response.ok) throw new Error("SYNC");
-    const data = await response.json() as { notes: Note[] };
-    setNotes(await replaceCachedNotes(data.notes));
+    const state = await response.json() as SyncState;
+    setNotes(await applySyncState(state));
     setMessage("");
   }, []);
 
@@ -228,17 +220,18 @@ export default function Home() {
 
   async function handleDelete(note: Note) {
     if (!window.confirm("删除这条笔记？")) return;
-    if (session !== "signed-in" || !navigator.onLine) {
-      setMessage("删除需要联网，稍后再试。");
-      return;
-    }
-    const response = await fetch(`/api/notes/${encodeURIComponent(note.id)}`, { method: "DELETE" });
-    if (!response.ok) {
-      setMessage("暂时无法删除这条笔记。");
-      return;
-    }
-    await removeLocalNote(note.id);
+    await queueDeletion(note.id);
     setNotes((current) => current.filter((item) => item.id !== note.id));
+    if (editingId === note.id) await resetComposer();
+    if (session === "signed-in" && navigator.onLine) {
+      try {
+        await syncFromCloud();
+        return;
+      } catch {
+        setSession("offline");
+      }
+    }
+    setMessage("已在本机删除，恢复网络后同步。");
   }
 
   async function handleLogout() {

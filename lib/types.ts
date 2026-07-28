@@ -11,3 +11,13 @@ export interface Note extends PageContext {
   createdAt: string;
   updatedAt: string;
 }
+
+export interface Deletion {
+  id: string;
+  deletedAt: string;
+}
+
+export interface SyncState {
+  notes: Note[];
+  deletions: Deletion[];
+}

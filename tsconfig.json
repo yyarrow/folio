@@ -4,5 +4,6 @@
     "jsx": "react-jsx",
     "strict": true,
     "noUncheckedIndexedAccess": true
-  }
+  },
+  "exclude": ["web"]
 }

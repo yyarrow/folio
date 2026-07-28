@@ -40,6 +40,14 @@ export async function isAuthenticated(): Promise<boolean> {
   return expected.length === actual.length && timingSafeEqual(expected, actual);
 }
 
+export async function isRequestAuthenticated(request: Request): Promise<boolean> {
+  const authorization = request.headers.get("authorization");
+  if (authorization?.startsWith("Bearer ")) {
+    return verifyAccessKey(authorization.slice(7));
+  }
+  return isAuthenticated();
+}
+
 export async function createSession(): Promise<void> {
   (await cookies()).set(COOKIE_NAME, sessionValue(), {
     httpOnly: true,

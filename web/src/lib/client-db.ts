@@ -1,7 +1,7 @@
 "use client";
 
 import { openDB, type DBSchema } from "idb";
-import type { Note, SharedContext } from "./types";
+import type { Deletion, Note, SharedContext, SyncState } from "./types";
 
 interface FolioMobileDatabase extends DBSchema {
   notes: {
@@ -13,6 +13,10 @@ interface FolioMobileDatabase extends DBSchema {
     key: string;
     value: Note;
   };
+  deletions: {
+    key: string;
+    value: Deletion;
+  };
   meta: {
     key: string;
     value: unknown;
@@ -20,7 +24,7 @@ interface FolioMobileDatabase extends DBSchema {
 }
 
 function createDatabase() {
-  return openDB<FolioMobileDatabase>("folio-mobile", 1, {
+  return openDB<FolioMobileDatabase>("folio-mobile", 2, {
     upgrade(db) {
       if (!db.objectStoreNames.contains("notes")) {
         const notes = db.createObjectStore("notes", { keyPath: "id" });
@@ -31,6 +35,9 @@ function createDatabase() {
       }
       if (!db.objectStoreNames.contains("meta")) {
         db.createObjectStore("meta");
+      }
+      if (!db.objectStoreNames.contains("deletions")) {
+        db.createObjectStore("deletions", { keyPath: "id" });
       }
     },
   });
@@ -50,44 +57,45 @@ export async function listLocalNotes(): Promise<Note[]> {
 
 export async function queueNote(note: Note): Promise<void> {
   const db = await getDatabase();
-  const transaction = db.transaction(["notes", "outbox"], "readwrite");
+  const transaction = db.transaction(["notes", "outbox", "deletions"], "readwrite");
   await Promise.all([
     transaction.objectStore("notes").put(note),
     transaction.objectStore("outbox").put(note),
+    transaction.objectStore("deletions").delete(note.id),
     transaction.done,
   ]);
 }
 
-export async function listPendingNotes(): Promise<Note[]> {
-  return (await getDatabase()).getAll("outbox");
-}
-
-export async function markNoteSynced(id: string): Promise<void> {
-  await (await getDatabase()).delete("outbox", id);
-}
-
-export async function replaceCachedNotes(remoteNotes: Note[]): Promise<Note[]> {
+export async function getLocalSyncState(): Promise<SyncState> {
   const db = await getDatabase();
-  const pending = await db.getAll("outbox");
-  const merged = new Map(remoteNotes.map((note) => [note.id, note]));
-  for (const note of pending) {
-    const remote = merged.get(note.id);
-    if (!remote || note.updatedAt > remote.updatedAt) merged.set(note.id, note);
-  }
-
-  const transaction = db.transaction("notes", "readwrite");
-  await transaction.store.clear();
-  for (const note of merged.values()) await transaction.store.put(note);
-  await transaction.done;
-  return [...merged.values()].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+  const [notes, deletions] = await Promise.all([
+    db.getAll("notes"),
+    db.getAll("deletions"),
+  ]);
+  return { notes, deletions };
 }
 
-export async function removeLocalNote(id: string): Promise<void> {
+export async function applySyncState(state: SyncState): Promise<Note[]> {
   const db = await getDatabase();
-  const transaction = db.transaction(["notes", "outbox"], "readwrite");
+  const transaction = db.transaction(["notes", "outbox", "deletions"], "readwrite");
+  await Promise.all([
+    transaction.objectStore("notes").clear(),
+    transaction.objectStore("outbox").clear(),
+    transaction.objectStore("deletions").clear(),
+    ...state.notes.map((note) => transaction.objectStore("notes").put(note)),
+    ...state.deletions.map((deletion) => transaction.objectStore("deletions").put(deletion)),
+    transaction.done,
+  ]);
+  return [...state.notes].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+}
+
+export async function queueDeletion(id: string): Promise<void> {
+  const db = await getDatabase();
+  const transaction = db.transaction(["notes", "outbox", "deletions"], "readwrite");
   await Promise.all([
     transaction.objectStore("notes").delete(id),
     transaction.objectStore("outbox").delete(id),
+    transaction.objectStore("deletions").put({ id, deletedAt: new Date().toISOString() }),
     transaction.done,
   ]);
 }
@@ -101,10 +109,11 @@ export async function consumeSharedContext(): Promise<SharedContext | undefined>
 
 export async function clearLocalData(): Promise<void> {
   const db = await getDatabase();
-  const transaction = db.transaction(["notes", "outbox", "meta"], "readwrite");
+  const transaction = db.transaction(["notes", "outbox", "deletions", "meta"], "readwrite");
   await Promise.all([
     transaction.objectStore("notes").clear(),
     transaction.objectStore("outbox").clear(),
+    transaction.objectStore("deletions").clear(),
     transaction.objectStore("meta").clear(),
     transaction.done,
   ]);

@@ -1,4 +1,4 @@
-import type { Note } from "./types";
+import type { Deletion, Note, SyncState } from "./types";
 
 const MAX_CONTENT_LENGTH = 50_000;
 const MAX_CONTEXT_LENGTH = 20_000;
@@ -51,4 +51,25 @@ export function parseNote(value: unknown): Note | null {
     updatedAt: new Date(updatedAt).toISOString(),
   };
   return note.content || note.selection ? note : null;
+}
+
+export function parseDeletion(value: unknown): Deletion | null {
+  if (!value || typeof value !== "object") return null;
+  const input = value as Record<string, unknown>;
+  const id = optionalText(input.id, 100);
+  const deletedAt = optionalText(input.deletedAt, 40);
+  if (!id || !deletedAt || !Number.isFinite(Date.parse(deletedAt))) return null;
+  return { id, deletedAt: new Date(deletedAt).toISOString() };
+}
+
+export function parseSyncState(value: unknown): SyncState | null {
+  if (!value || typeof value !== "object") return null;
+  const input = value as Record<string, unknown>;
+  if (!Array.isArray(input.notes) || !Array.isArray(input.deletions)) return null;
+  if (input.notes.length > 5_000 || input.deletions.length > 5_000) return null;
+
+  const notes = input.notes.map(parseNote);
+  const deletions = input.deletions.map(parseDeletion);
+  if (notes.some((note) => !note) || deletions.some((deletion) => !deletion)) return null;
+  return { notes: notes as Note[], deletions: deletions as Deletion[] };
 }
