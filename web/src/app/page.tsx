@@ -110,7 +110,7 @@ export default function Home() {
         await syncFromCloud();
       } catch {
         setSession("offline");
-        setMessage("当前离线，笔记会先安全地留在这台手机。");
+        setMessage("当前离线，笔记将保存在本机。");
       }
     })();
 
@@ -168,7 +168,7 @@ export default function Home() {
     try {
       await syncFromCloud();
     } catch {
-      setMessage("已登录，云端暂时不可用；仍可离线记录。");
+      setMessage("登录成功。云端暂不可用，笔记将保存在本机。");
     }
   }
 
@@ -213,7 +213,7 @@ export default function Home() {
       }
     }
     setSaveState("queued");
-    setMessage("已保存到手机，联网后会自动同步。");
+    setMessage("已保存到本机，恢复网络后同步。");
     window.setTimeout(() => setSaveState("idle"), 900);
   }
 
@@ -269,21 +269,21 @@ export default function Home() {
       <main className="login-shell">
         <section className="login-card">
           <div className="login-brand"><FolioMark /><span>Folio</span></div>
-          <p className="eyebrow">你的私人收件箱</p>
-          <h1>把闪过的念头，<br />先稳稳接住。</h1>
-          <p className="login-copy">登录一次，以后从微信读书、浏览器或桌面图标都能快速记下。</p>
+          <p className="eyebrow">Every idea matters.</p>
+          <h1>每个想法，<br />都值得记下。</h1>
+          <p className="login-copy">一个随时打开、随处记录的轻量笔记工具。</p>
           <form onSubmit={handleLogin}>
-            <label htmlFor="access-key">访问密钥</label>
+            <label htmlFor="access-key">访问码</label>
             <input
               id="access-key"
               type="password"
               value={accessKey}
               onChange={(event) => setAccessKey(event.target.value)}
-              placeholder="输入你的 Folio 密钥"
+              placeholder="输入访问码"
               autoComplete="current-password"
               autoFocus
             />
-            <button disabled={!accessKey}>进入 Folio</button>
+            <button disabled={!accessKey}>登录</button>
           </form>
           {message && <p className="form-message" role="status">{message}</p>}
         </section>
@@ -298,7 +298,7 @@ export default function Home() {
         <div className="top-actions">
           {installPrompt && <button className="install-button" onClick={() => void handleInstall()}>安装</button>}
           <span className={`sync-status ${session}`}>
-            <i /> {session === "signed-in" ? "云端" : "离线"}
+            <i /> {session === "signed-in" ? "已同步" : "离线"}
           </span>
           <button className="more-button" onClick={() => void handleLogout()} aria-label="退出登录">•••</button>
         </div>
@@ -306,8 +306,7 @@ export default function Home() {
 
       <div className="content-column">
         <section className="intro">
-          <p>随手记</p>
-          <h1>此刻，有什么值得留下？</h1>
+          <h1>新建笔记</h1>
         </section>
 
         <section className="composer" aria-label="新笔记">
@@ -333,7 +332,7 @@ export default function Home() {
             ref={textareaRef}
             value={content}
             onChange={(event) => { setContent(event.target.value); setSaveState("idle"); }}
-            placeholder={context.selection ? "这段话让你想到了什么？" : "先写下来，不必整理…"}
+            placeholder={context.selection ? "为这段内容添加笔记…" : "写下想法…"}
             rows={7}
           />
 
@@ -345,7 +344,7 @@ export default function Home() {
             <div className="composer-actions">
               {editingId && <button className="cancel-button" onClick={resetComposer}>取消</button>}
               <button className={`save-button ${saveState}`} disabled={!canSave || saveState === "saving"} onClick={() => void handleSave()}>
-                {saveState === "saving" ? "保存中…" : saveState === "saved" ? "已同步 ✓" : saveState === "queued" ? "已收下 ✓" : "保存"}
+                {saveState === "saving" ? "保存中…" : saveState === "saved" ? "已保存 ✓" : saveState === "queued" ? "待同步 ✓" : "保存"}
               </button>
             </div>
           </footer>

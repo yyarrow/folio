@@ -3,7 +3,7 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "Folio",
-  description: "随时收下值得留下的想法、文字和网页。",
+  description: "一个随时打开、随处记录的轻量笔记工具。",
   applicationName: "Folio",
   manifest: "/manifest.webmanifest",
   appleWebApp: {

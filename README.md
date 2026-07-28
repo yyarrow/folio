@@ -18,7 +18,7 @@ The browser extension does not collect full page content or send notes anywhere.
 
 ## Android
 
-Open [folio-steel-psi.vercel.app](https://folio-steel-psi.vercel.app) in Chrome, sign in, then choose **Install app** or **Add to Home screen** from Chrome's menu. Once installed, Folio appears in Android's share sheet, so text and links can be sent directly from WeRead or another app.
+Open [folio.warmbeing.com](https://folio.warmbeing.com) in Chrome, sign in, then choose **Install app** or **Add to Home screen** from Chrome's menu. Once installed, Folio appears in Android's share sheet, so text and links can be sent directly from WeRead or another app.
 
 Captured notes are saved locally first. If the phone is offline, Folio queues them and syncs automatically when the connection returns.
 
