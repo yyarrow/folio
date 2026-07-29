@@ -25,7 +25,7 @@ import {
 } from "@/lib/notes";
 import type { Note, PageContext, SyncState } from "@/lib/types";
 
-type SessionState = "checking" | "signed-in" | "signed-out" | "offline";
+type SessionState = "checking" | "signed-in" | "signed-out" | "offline" | "storage-error";
 type SaveState = "idle" | "saving" | "saved" | "queued" | "local";
 type CurrentUser = { id: string; email: string };
 
@@ -160,7 +160,10 @@ export default function Home() {
           window.history.replaceState(null, "", `${window.location.pathname}${query ? `?${query}` : ""}`);
         }
       }
-    })();
+    })().catch(() => {
+      setSession("storage-error");
+      setMessage("本地存储暂时无法打开。请关闭其他 Folio 页面后重试。");
+    });
 
     const onOnline = () => {
       void (async () => {
@@ -403,6 +406,17 @@ export default function Home() {
       <main className="loading-screen">
         <FolioMark />
         <span>Folio</span>
+      </main>
+    );
+  }
+
+  if (session === "storage-error") {
+    return (
+      <main className="storage-error-screen">
+        <FolioMark />
+        <h1>本地笔记没有丢失</h1>
+        <p>{message}</p>
+        <button onClick={() => window.location.reload()}>重新打开 Folio</button>
       </main>
     );
   }

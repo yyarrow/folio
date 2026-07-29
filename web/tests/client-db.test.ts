@@ -22,7 +22,7 @@ function note(id: string, content: string, updatedAt: string): Note {
 }
 
 describe("local workspace storage", () => {
-  test("migrates an existing account cache and only clears guest notes after an explicit merge", async () => {
+  test("keeps a v2 account cache in place and only clears guest notes after an explicit merge", async () => {
     const userId = "existing-user";
     const userScope = scopeForUser(userId);
     const existing = note("cloud-note", "existing cloud cache", "2026-07-01T00:00:00.000Z");
@@ -41,6 +41,9 @@ describe("local workspace storage", () => {
 
     expect(await listLocalNotes(userScope)).toEqual([existing]);
     expect(await listLocalNotes(LOCAL_SCOPE)).toEqual([]);
+    const compatible = await openDB("folio-mobile");
+    expect(compatible.version).toBe(2);
+    compatible.close();
 
     const local = note("local-note", "guest thought", "2026-07-02T00:00:00.000Z");
     await queueNote(LOCAL_SCOPE, local);

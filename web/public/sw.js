@@ -1,10 +1,9 @@
-const CACHE_NAME = "folio-shell-v2";
+const CACHE_NAME = "folio-shell-v3";
 const DB_NAME = "folio-mobile";
-const DB_VERSION = 3;
 
 function openDatabase() {
   return new Promise((resolve, reject) => {
-    const request = indexedDB.open(DB_NAME, DB_VERSION);
+    const request = indexedDB.open(DB_NAME);
     request.onupgradeneeded = () => {
       const db = request.result;
       if (!db.objectStoreNames.contains("notes")) {

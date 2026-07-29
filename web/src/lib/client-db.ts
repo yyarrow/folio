@@ -6,7 +6,7 @@ import type { Deletion, Note, SharedContext, SyncState } from "./types";
 
 export const LOCAL_SCOPE = "local";
 const DATABASE_NAME = "folio-mobile";
-const DATABASE_VERSION = 3;
+const LOCAL_DATABASE_NAME = "folio-mobile-local";
 const MIGRATION_KEY = "scoped-storage-v3";
 
 interface ScopedNote {
@@ -70,7 +70,7 @@ function storageKey(scope: string, id: string): string {
 }
 
 function createDatabase() {
-  return openDB<FolioMobileDatabase>(DATABASE_NAME, DATABASE_VERSION, {
+  return openDB<FolioMobileDatabase>(DATABASE_NAME, undefined, {
     upgrade(db) {
       if (!db.objectStoreNames.contains("notes")) {
         const notes = db.createObjectStore("notes", { keyPath: "id" });
@@ -98,15 +98,42 @@ function createDatabase() {
         deletions.createIndex("by-scope", "scope");
       }
     },
+    blocking() {
+      void database?.then((db) => db.close());
+    },
+  });
+}
+
+function createLocalDatabase() {
+  return openDB<FolioMobileDatabase>(LOCAL_DATABASE_NAME, 1, {
+    upgrade(db) {
+      if (!db.objectStoreNames.contains("notes")) {
+        const notes = db.createObjectStore("notes", { keyPath: "id" });
+        notes.createIndex("by-updated-at", "updatedAt");
+      }
+      if (!db.objectStoreNames.contains("outbox")) db.createObjectStore("outbox", { keyPath: "id" });
+      if (!db.objectStoreNames.contains("deletions")) db.createObjectStore("deletions", { keyPath: "id" });
+      if (!db.objectStoreNames.contains("meta")) db.createObjectStore("meta");
+    },
   });
 }
 
 let database: ReturnType<typeof createDatabase> | undefined;
+let localDatabase: ReturnType<typeof createLocalDatabase> | undefined;
 let migration: Promise<void> | undefined;
 
 function getDatabase() {
   database ??= createDatabase();
   return database;
+}
+
+function getLocalDatabase() {
+  localDatabase ??= createLocalDatabase();
+  return localDatabase;
+}
+
+function hasScopedStorage(db: IDBPDatabase<FolioMobileDatabase>): boolean {
+  return db.objectStoreNames.contains("scoped-notes");
 }
 
 async function migrateLegacyStorage(db: IDBPDatabase<FolioMobileDatabase>): Promise<void> {
@@ -151,13 +178,41 @@ async function migrateLegacyStorage(db: IDBPDatabase<FolioMobileDatabase>): Prom
 
 async function readyDatabase(): Promise<IDBPDatabase<FolioMobileDatabase>> {
   const db = await getDatabase();
-  migration ??= migrateLegacyStorage(db);
-  await migration;
+  if (hasScopedStorage(db)) {
+    migration ??= migrateLegacyStorage(db);
+    await migration;
+  }
   return db;
+}
+
+async function readLegacyScope(db: IDBPDatabase<FolioMobileDatabase>): Promise<SyncState> {
+  const [notes, deletions] = await Promise.all([
+    db.getAll("notes"),
+    db.getAll("deletions"),
+  ]);
+  return { notes, deletions };
+}
+
+async function applyLegacyState(db: IDBPDatabase<FolioMobileDatabase>, state: SyncState): Promise<Note[]> {
+  const transaction = db.transaction(["notes", "outbox", "deletions"], "readwrite");
+  await Promise.all([
+    transaction.objectStore("notes").clear(),
+    transaction.objectStore("outbox").clear(),
+    transaction.objectStore("deletions").clear(),
+    ...state.notes.map((note) => transaction.objectStore("notes").put(note)),
+    ...state.deletions.map((deletion) => transaction.objectStore("deletions").put(deletion)),
+    transaction.done,
+  ]);
+  return [...state.notes].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+}
+
+async function legacyDatabaseForScope(scope: string): Promise<IDBPDatabase<FolioMobileDatabase>> {
+  return scope === LOCAL_SCOPE ? getLocalDatabase() : readyDatabase();
 }
 
 async function readScope(scope: string): Promise<SyncState> {
   const db = await readyDatabase();
+  if (!hasScopedStorage(db)) return readLegacyScope(await legacyDatabaseForScope(scope));
   const [notes, deletions] = await Promise.all([
     db.getAllFromIndex("scoped-notes", "by-scope", scope),
     db.getAllFromIndex("scoped-deletions", "by-scope", scope),
@@ -193,6 +248,25 @@ export async function rememberLocalWorkspace(): Promise<void> {
 export async function rememberUserWorkspace(user: { id: string; email: string }): Promise<string> {
   const db = await readyDatabase();
   const scope = userScope(user.id);
+  if (!hasScopedStorage(db)) {
+    const currentUserId = await db.get("meta", "user-id") as string | undefined;
+    if (currentUserId !== user.id) {
+      const previous = await readLegacyScope(db);
+      if (previous.notes.length || previous.deletions.length) {
+        const local = await readLegacyScope(await getLocalDatabase());
+        await applyLegacyState(await getLocalDatabase(), mergeSyncState(local, previous));
+      }
+      await applyLegacyState(db, { notes: [], deletions: [] });
+    }
+    const transaction = db.transaction("meta", "readwrite");
+    await Promise.all([
+      transaction.store.put(user.id, "user-id"),
+      transaction.store.put(scope, "last-scope"),
+      transaction.store.put(user, "last-user"),
+      transaction.done,
+    ]);
+    return scope;
+  }
   const transaction = db.transaction("meta", "readwrite");
   await Promise.all([
     transaction.store.put(scope, "last-scope"),
@@ -213,6 +287,17 @@ export async function countLocalNotes(): Promise<number> {
 
 export async function queueNote(scope: string, note: Note): Promise<void> {
   const db = await readyDatabase();
+  if (!hasScopedStorage(db)) {
+    const legacy = await legacyDatabaseForScope(scope);
+    const transaction = legacy.transaction(["notes", "outbox", "deletions"], "readwrite");
+    await Promise.all([
+      transaction.objectStore("notes").put(note),
+      transaction.objectStore("outbox").put(note),
+      transaction.objectStore("deletions").delete(note.id),
+      transaction.done,
+    ]);
+    return;
+  }
   const transaction = db.transaction(["scoped-notes", "scoped-outbox", "scoped-deletions"], "readwrite");
   const record = { storageKey: storageKey(scope, note.id), scope, note };
   await Promise.all([
@@ -229,6 +314,7 @@ export async function getLocalSyncState(scope: string): Promise<SyncState> {
 
 export async function applySyncState(scope: string, state: SyncState): Promise<Note[]> {
   const db = await readyDatabase();
+  if (!hasScopedStorage(db)) return applyLegacyState(await legacyDatabaseForScope(scope), state);
   const currentNotes = await db.getAllKeysFromIndex("scoped-notes", "by-scope", scope);
   const currentOutbox = await db.getAllKeysFromIndex("scoped-outbox", "by-scope", scope);
   const currentDeletions = await db.getAllKeysFromIndex("scoped-deletions", "by-scope", scope);
@@ -250,6 +336,17 @@ export async function applySyncState(scope: string, state: SyncState): Promise<N
 
 export async function queueDeletion(scope: string, id: string): Promise<void> {
   const db = await readyDatabase();
+  if (!hasScopedStorage(db)) {
+    const legacy = await legacyDatabaseForScope(scope);
+    const transaction = legacy.transaction(["notes", "outbox", "deletions"], "readwrite");
+    await Promise.all([
+      transaction.objectStore("notes").delete(id),
+      transaction.objectStore("outbox").delete(id),
+      transaction.objectStore("deletions").put({ id, deletedAt: new Date().toISOString() }),
+      transaction.done,
+    ]);
+    return;
+  }
   const transaction = db.transaction(["scoped-notes", "scoped-outbox", "scoped-deletions"], "readwrite");
   const key = storageKey(scope, id);
   const deletion = { id, deletedAt: new Date().toISOString() };
@@ -277,8 +374,12 @@ export async function consumeSharedContext(): Promise<SharedContext | undefined>
 }
 
 export async function clearLocalData(scope: string): Promise<void> {
-  const state = await readScope(scope);
   const db = await readyDatabase();
+  if (!hasScopedStorage(db)) {
+    await applyLegacyState(await legacyDatabaseForScope(scope), { notes: [], deletions: [] });
+    return;
+  }
+  const state = await readScope(scope);
   const transaction = db.transaction(["scoped-notes", "scoped-outbox", "scoped-deletions"], "readwrite");
   await Promise.all([
     ...state.notes.map((note) => transaction.objectStore("scoped-notes").delete(storageKey(scope, note.id))),

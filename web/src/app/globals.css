@@ -24,6 +24,35 @@ button { color: inherit; }
   font-family: Georgia, serif;
   font-size: 26px;
 }
+.storage-error-screen {
+  display: flex;
+  min-height: 100svh;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 28px;
+  background: #f4f0e7;
+  text-align: center;
+}
+.storage-error-screen h1 {
+  margin: 18px 0 7px;
+  color: #40382b;
+  font-family: Georgia, "Noto Serif SC", serif;
+  font-size: 24px;
+  font-weight: 500;
+}
+.storage-error-screen p { margin: 0; color: #81796b; font-size: 12px; line-height: 1.7; }
+.storage-error-screen button {
+  margin-top: 20px;
+  border: 0;
+  border-radius: 10px;
+  padding: 10px 15px;
+  background: #302d27;
+  color: #fffdf8;
+  font-size: 12px;
+  font-weight: 650;
+  cursor: pointer;
+}
 
 .folio-mark {
   position: relative;
