@@ -66,7 +66,7 @@ export default function App() {
   const [ready, setReady] = useState(false);
   const [connected, setConnected] = useState(false);
   const [syncStatus, setSyncStatus] = useState<SyncStatus>("local");
-  const [accessCode, setAccessCode] = useState("");
+  const [deviceCode, setDeviceCode] = useState("");
   const [syncMessage, setSyncMessage] = useState("");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -92,7 +92,7 @@ export default function App() {
         await disconnectCloud();
         setConnected(false);
         setSyncStatus("error");
-        setSyncMessage("访问码已失效，请重新连接。");
+        setSyncMessage("设备连接已失效，请重新连接。");
       } else {
         setSyncStatus("offline");
         if (showFeedback) setSyncMessage("暂时无法连接，笔记已保存在本地。");
@@ -205,16 +205,19 @@ export default function App() {
     setSyncStatus("syncing");
     setSyncMessage("");
     try {
-      await connectCloud(accessCode);
+      await connectCloud(deviceCode);
       setConnected(true);
-      setAccessCode("");
+      setDeviceCode("");
       setSyncStatus("synced");
       setSyncMessage("已连接，现有笔记已同步。");
       await refreshNotes();
     } catch (error) {
       if (error instanceof CloudSyncError && error.code === "unauthorized") {
         setSyncStatus("error");
-        setSyncMessage("访问码不正确。");
+        setSyncMessage("连接码无效或已过期。");
+      } else if (error instanceof CloudSyncError && error.code === "account-mismatch") {
+        setSyncStatus("error");
+        setSyncMessage("这是另一个账号。为避免混合笔记，此设备暂不允许直接切换。");
       } else {
         setSyncStatus("offline");
         setSyncMessage("暂时无法连接云端。");
@@ -256,16 +259,17 @@ export default function App() {
                 </>
               ) : (
                 <form className="sync-connect" onSubmit={(event) => void handleConnect(event)}>
-                  <label htmlFor="cloud-access-code">连接云端</label>
+                  <label htmlFor="cloud-device-code">连接云端</label>
                   <input
-                    id="cloud-access-code"
-                    type="password"
-                    value={accessCode}
-                    onChange={(event) => setAccessCode(event.target.value)}
-                    placeholder="输入访问码"
-                    autoComplete="current-password"
+                    id="cloud-device-code"
+                    type="text"
+                    value={deviceCode}
+                    onChange={(event) => setDeviceCode(event.target.value.toUpperCase())}
+                    placeholder="输入网页生成的连接码"
+                    autoComplete="one-time-code"
+                    maxLength={8}
                   />
-                  <button className="connect-button" disabled={!accessCode.trim() || syncStatus === "syncing"}>
+                  <button className="connect-button" disabled={!deviceCode.trim() || syncStatus === "syncing"}>
                     {syncStatus === "syncing" ? "连接中…" : "连接并同步"}
                   </button>
                 </form>

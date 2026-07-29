@@ -109,6 +109,7 @@ button { color: inherit; }
 }
 .login-card form { display: grid; gap: 10px; }
 .login-card label { color: #726b5f; font-size: 12px; font-weight: 650; }
+.login-card label span { margin-left: 5px; color: #aaa294; font-size: 10px; font-weight: 500; }
 .login-card input {
   width: 100%;
   height: 50px;
@@ -136,6 +137,13 @@ button { color: inherit; }
 }
 .login-card form button:disabled { cursor: not-allowed; opacity: .34; }
 .form-message { margin: 14px 0 0; color: #a05443; font-size: 12px; line-height: 1.5; }
+.privacy-link {
+  display: inline-block;
+  margin-top: 18px;
+  color: #968d7e;
+  font-size: 11px;
+  text-decoration: none;
+}
 
 .app-shell {
   min-height: 100svh;
@@ -166,7 +174,7 @@ button { color: inherit; }
   font-size: 22px;
 }
 .brand .folio-mark { width: 29px; height: 29px; }
-.top-actions { display: flex; align-items: center; gap: 9px; }
+.top-actions { position: relative; display: flex; align-items: center; gap: 9px; }
 .sync-status {
   display: flex;
   align-items: center;
@@ -201,6 +209,61 @@ button { color: inherit; }
   letter-spacing: 1px;
   cursor: pointer;
 }
+.account-menu {
+  position: absolute;
+  top: 39px;
+  right: 0;
+  z-index: 20;
+  display: grid;
+  width: min(270px, calc(100vw - 28px));
+  overflow: hidden;
+  border: 1px solid rgba(61, 53, 38, .13);
+  border-radius: 14px;
+  padding: 7px;
+  background: #fffdf8;
+  box-shadow: 0 18px 48px rgba(54, 46, 32, .16);
+}
+.account-email {
+  overflow: hidden;
+  padding: 9px 10px 11px;
+  border-bottom: 1px solid #f0eadf;
+  color: #877f72;
+  font-size: 10px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.account-menu > button,
+.account-menu > a {
+  border: 0;
+  border-radius: 8px;
+  padding: 10px;
+  background: transparent;
+  color: #514b41;
+  font-size: 11px;
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+}
+.account-menu > button:hover,
+.account-menu > a:hover { background: #f6f1e8; }
+.account-menu > button:disabled { cursor: wait; opacity: .5; }
+.account-menu > .danger { color: #a05443; }
+.device-code {
+  display: grid;
+  gap: 3px;
+  margin: 3px 5px 6px;
+  border-radius: 10px;
+  padding: 11px;
+  background: #f1e7d3;
+  text-align: center;
+}
+.device-code strong {
+  color: #6f5426;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 21px;
+  letter-spacing: .13em;
+}
+.device-code span { color: #978a73; font-size: 9px; }
 
 .content-column { width: min(100%, 680px); margin: 0 auto; }
 .intro { padding: 36px 20px 17px; }
@@ -511,3 +574,25 @@ button { color: inherit; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; transition: none !important; }
 }
+
+.legal-shell {
+  min-height: 100svh;
+  padding: 36px 18px;
+  background: #f4f0e7;
+}
+.legal-card {
+  width: min(100%, 680px);
+  margin: 0 auto;
+  border: 1px solid rgba(61, 53, 38, .11);
+  border-radius: 22px;
+  padding: clamp(24px, 6vw, 48px);
+  background: #fffdf8;
+  box-shadow: 0 18px 48px rgba(54, 46, 32, .07);
+}
+.legal-brand { color: #806633; font-family: Georgia, serif; font-size: 16px; text-decoration: none; }
+.legal-card .eyebrow { margin-top: 38px; }
+.legal-card h1 { margin: 0 0 26px; font-family: Georgia, "Noto Serif SC", serif; font-size: 38px; font-weight: 500; }
+.legal-card h2 { margin: 28px 0 8px; color: #463f34; font-size: 15px; }
+.legal-card p { color: #756e62; font-size: 13px; line-height: 1.85; }
+.legal-card a { color: #806633; }
+.legal-card small { display: block; margin-top: 34px; color: #aaa294; font-size: 10px; }

@@ -1,33 +1,17 @@
 import { NextResponse } from "next/server";
-import { isRequestAuthenticated } from "@/lib/auth";
+import { authenticateRequest } from "@/lib/auth";
+import { extensionCorsHeaders } from "@/lib/cors";
 import { syncNotes } from "@/lib/store";
 import { parseSyncState } from "@/lib/validation";
 
-function responseHeaders(request: Request): HeadersInit {
-  const origin = request.headers.get("origin");
-  const allowedOrigin = origin && (
-    origin === "https://folio.warmbeing.com"
-    || origin.startsWith("chrome-extension://")
-    || origin.startsWith("moz-extension://")
-    || origin.startsWith("http://localhost:")
-  ) ? origin : undefined;
-
-  return {
-    ...(allowedOrigin ? { "Access-Control-Allow-Origin": allowedOrigin } : {}),
-    "Access-Control-Allow-Headers": "authorization, content-type",
-    "Access-Control-Allow-Methods": "POST, OPTIONS",
-    "Cache-Control": "no-store",
-    "Vary": "Origin",
-  };
-}
-
 export function OPTIONS(request: Request) {
-  return new NextResponse(null, { status: 204, headers: responseHeaders(request) });
+  return new NextResponse(null, { status: 204, headers: extensionCorsHeaders(request) });
 }
 
 export async function POST(request: Request) {
-  const headers = responseHeaders(request);
-  if (!await isRequestAuthenticated(request)) {
+  const headers = extensionCorsHeaders(request);
+  const user = await authenticateRequest(request);
+  if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401, headers });
   }
 
@@ -37,7 +21,7 @@ export async function POST(request: Request) {
   }
 
   try {
-    return NextResponse.json(await syncNotes(state), { headers });
+    return NextResponse.json(await syncNotes(user.id, state), { headers });
   } catch (error) {
     console.error(error);
     return NextResponse.json({ error: "暂时无法同步。" }, { status: 503, headers });

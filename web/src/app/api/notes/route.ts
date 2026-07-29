@@ -1,14 +1,15 @@
 import { NextResponse } from "next/server";
-import { isAuthenticated } from "@/lib/auth";
+import { getCurrentUser } from "@/lib/auth";
 import { listNotes, upsertNote } from "@/lib/store";
 import { parseNote } from "@/lib/validation";
 
 export async function GET() {
-  if (!await isAuthenticated()) {
+  const user = await getCurrentUser();
+  if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   try {
-    return NextResponse.json({ notes: await listNotes() });
+    return NextResponse.json({ notes: await listNotes(user.id) });
   } catch (error) {
     console.error(error);
     return NextResponse.json({ error: "云端存储尚未配置。" }, { status: 503 });
@@ -16,7 +17,8 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  if (!await isAuthenticated()) {
+  const user = await getCurrentUser();
+  if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   const note = parseNote(await request.json().catch(() => null));
@@ -24,7 +26,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "笔记内容无效。" }, { status: 400 });
   }
   try {
-    await upsertNote(note);
+    await upsertNote(user.id, note);
     return NextResponse.json({ note });
   } catch (error) {
     console.error(error);

@@ -7,6 +7,7 @@ import {
   applySyncState,
   getLocalSyncState,
   listLocalNotes,
+  prepareLocalForUser,
   queueDeletion,
   queueNote,
 } from "@/lib/client-db";
@@ -20,6 +21,7 @@ import type { Note, PageContext, SyncState } from "@/lib/types";
 
 type SessionState = "checking" | "signed-in" | "signed-out" | "offline";
 type SaveState = "idle" | "saving" | "saved" | "queued";
+type CurrentUser = { id: string; email: string };
 
 interface InstallPromptEvent extends Event {
   prompt(): Promise<void>;
@@ -41,8 +43,14 @@ export default function Home() {
   const [query, setQuery] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [session, setSession] = useState<SessionState>("checking");
+  const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
   const [saveState, setSaveState] = useState<SaveState>("idle");
-  const [accessKey, setAccessKey] = useState("");
+  const [email, setEmail] = useState("");
+  const [inviteCode, setInviteCode] = useState("");
+  const [sendingLogin, setSendingLogin] = useState(false);
+  const [showAccountMenu, setShowAccountMenu] = useState(false);
+  const [deviceCode, setDeviceCode] = useState("");
+  const [creatingDeviceCode, setCreatingDeviceCode] = useState(false);
   const [message, setMessage] = useState("");
   const [installPrompt, setInstallPrompt] = useState<InstallPromptEvent | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -85,6 +93,9 @@ export default function Home() {
 
     void (async () => {
       setNotes(await listLocalNotes());
+      if (new URLSearchParams(window.location.search).get("auth") === "expired") {
+        setMessage("登录链接无效或已过期，请重新获取。");
+      }
       const shared = await consumeSharedContext();
       if (shared) {
         setContext(normalizeSharedContext(shared));
@@ -93,11 +104,13 @@ export default function Home() {
 
       try {
         const response = await fetch("/api/auth/session", { cache: "no-store" });
-        const data = await response.json() as { authenticated: boolean };
-        if (!data.authenticated) {
+        const data = await response.json() as { authenticated: boolean; user?: CurrentUser | null };
+        if (!data.authenticated || !data.user) {
           setSession("signed-out");
           return;
         }
+        setCurrentUser(data.user);
+        await prepareLocalForUser(data.user.id);
         setSession("signed-in");
         await syncFromCloud();
       } catch {
@@ -110,11 +123,14 @@ export default function Home() {
       void (async () => {
         try {
           const response = await fetch("/api/auth/session", { cache: "no-store" });
-          const data = await response.json() as { authenticated: boolean };
-          if (!data.authenticated) {
+          const data = await response.json() as { authenticated: boolean; user?: CurrentUser | null };
+          if (!data.authenticated || !data.user) {
+            setCurrentUser(null);
             setSession("signed-out");
             return;
           }
+          setCurrentUser(data.user);
+          await prepareLocalForUser(data.user.id);
           setSession("signed-in");
           await syncFromCloud();
         } catch {
@@ -144,23 +160,25 @@ export default function Home() {
 
   async function handleLogin(event: FormEvent) {
     event.preventDefault();
+    if (sendingLogin) return;
+    setSendingLogin(true);
     setMessage("");
-    const response = await fetch("/api/auth/login", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ accessKey }),
-    });
-    const data = await response.json().catch(() => ({})) as { error?: string };
-    if (!response.ok) {
-      setMessage(data.error ?? "暂时无法登录。");
-      return;
-    }
-    setAccessKey("");
-    setSession("signed-in");
     try {
-      await syncFromCloud();
-    } catch {
-      setMessage("登录成功。云端暂不可用，笔记将保存在本机。");
+      const response = await fetch("/api/auth/email-link", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ email, inviteCode }),
+      });
+      const data = await response.json().catch(() => ({})) as { error?: string; previewUrl?: string };
+      if (!response.ok) {
+        setMessage(data.error ?? "暂时无法发送登录邮件。");
+        return;
+      }
+      setInviteCode("");
+      setMessage("登录链接已发送，请查收邮件。");
+      if (data.previewUrl) window.location.href = data.previewUrl;
+    } finally {
+      setSendingLogin(false);
     }
   }
 
@@ -238,6 +256,54 @@ export default function Home() {
     await fetch("/api/auth/logout", { method: "POST" }).catch(() => undefined);
     await clearLocalData();
     setNotes([]);
+    setCurrentUser(null);
+    setShowAccountMenu(false);
+    setDeviceCode("");
+    setSession("signed-out");
+  }
+
+  async function handleCreateDeviceCode() {
+    if (creatingDeviceCode) return;
+    setCreatingDeviceCode(true);
+    setDeviceCode("");
+    try {
+      const response = await fetch("/api/auth/device-code", { method: "POST" });
+      const data = await response.json().catch(() => ({})) as { code?: string; error?: string };
+      if (!response.ok || !data.code) {
+        setMessage(data.error ?? "暂时无法生成连接码。");
+        return;
+      }
+      setDeviceCode(data.code);
+    } finally {
+      setCreatingDeviceCode(false);
+    }
+  }
+
+  function handleExport() {
+    const blob = new Blob([JSON.stringify(notes, null, 2)], { type: "application/json;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = `folio-${new Date().toISOString().slice(0, 10)}.json`;
+    anchor.click();
+    URL.revokeObjectURL(url);
+  }
+
+  async function handleDeleteAccount() {
+    if (!window.confirm("永久删除账号和全部云端笔记？此操作无法撤销。")) return;
+    if (window.prompt("请输入 DELETE 确认删除") !== "DELETE") return;
+    const response = await fetch("/api/account", {
+      method: "DELETE",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ confirmation: "DELETE" }),
+    });
+    if (!response.ok) {
+      setMessage("暂时无法删除账号。");
+      return;
+    }
+    await clearLocalData();
+    setNotes([]);
+    setCurrentUser(null);
     setSession("signed-out");
   }
 
@@ -266,19 +332,29 @@ export default function Home() {
           <h1>每个想法，<br />都值得记下。</h1>
           <p className="login-copy">一个随时打开、随处记录的轻量笔记工具。</p>
           <form onSubmit={handleLogin}>
-            <label htmlFor="access-key">访问码</label>
+            <label htmlFor="email">邮箱</label>
             <input
-              id="access-key"
-              type="password"
-              value={accessKey}
-              onChange={(event) => setAccessKey(event.target.value)}
-              placeholder="输入访问码"
-              autoComplete="current-password"
+              id="email"
+              type="email"
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+              placeholder="you@example.com"
+              autoComplete="email"
               autoFocus
             />
-            <button disabled={!accessKey}>登录</button>
+            <label htmlFor="invite-code">邀请码 <span>首次使用时填写</span></label>
+            <input
+              id="invite-code"
+              type="password"
+              value={inviteCode}
+              onChange={(event) => setInviteCode(event.target.value)}
+              placeholder="已有账号可留空"
+              autoComplete="one-time-code"
+            />
+            <button disabled={!email.trim() || sendingLogin}>{sendingLogin ? "发送中…" : "发送登录链接"}</button>
           </form>
           {message && <p className="form-message" role="status">{message}</p>}
+          <a className="privacy-link" href="/privacy">隐私与数据</a>
         </section>
       </main>
     );
@@ -293,7 +369,25 @@ export default function Home() {
           <span className={`sync-status ${session}`}>
             <i /> {session === "signed-in" ? "已同步" : "离线"}
           </span>
-          <button className="more-button" onClick={() => void handleLogout()} aria-label="退出登录">•••</button>
+          <button className="more-button" onClick={() => setShowAccountMenu((open) => !open)} aria-label="账号设置">•••</button>
+          {showAccountMenu && (
+            <div className="account-menu">
+              <div className="account-email">{currentUser?.email}</div>
+              <button onClick={() => void handleCreateDeviceCode()} disabled={creatingDeviceCode}>
+                {creatingDeviceCode ? "生成中…" : "连接浏览器插件"}
+              </button>
+              {deviceCode && (
+                <div className="device-code" role="status">
+                  <strong>{deviceCode}</strong>
+                  <span>10 分钟内在插件中输入</span>
+                </div>
+              )}
+              <button onClick={handleExport}>导出 JSON</button>
+              <a href="/privacy">隐私与数据</a>
+              <button onClick={() => void handleLogout()}>退出登录</button>
+              <button className="danger" onClick={() => void handleDeleteAccount()}>删除账号</button>
+            </div>
+          )}
         </div>
       </header>
 

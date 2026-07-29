@@ -11,7 +11,7 @@ export default defineConfig({
     name: "Folio",
     short_name: "Folio",
     description: "Capture thoughts, selections, and pages without leaving your flow.",
-    version: "0.2.0",
+    version: "0.3.0",
     host_permissions: ["https://folio.warmbeing.com/*"],
     permissions:
       browser === "firefox"

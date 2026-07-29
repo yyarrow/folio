@@ -55,6 +55,22 @@ export async function listLocalNotes(): Promise<Note[]> {
   return notes.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
 }
 
+export async function prepareLocalForUser(userId: string): Promise<void> {
+  const db = await getDatabase();
+  const transaction = db.transaction(["notes", "outbox", "deletions", "meta"], "readwrite");
+  const meta = transaction.objectStore("meta");
+  const currentUserId = await meta.get("user-id") as string | undefined;
+  if (currentUserId && currentUserId !== userId) {
+    await Promise.all([
+      transaction.objectStore("notes").clear(),
+      transaction.objectStore("outbox").clear(),
+      transaction.objectStore("deletions").clear(),
+    ]);
+  }
+  await meta.put(userId, "user-id");
+  await transaction.done;
+}
+
 export async function queueNote(note: Note): Promise<void> {
   const db = await getDatabase();
   const transaction = db.transaction(["notes", "outbox", "deletions"], "readwrite");

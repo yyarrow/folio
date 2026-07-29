@@ -2,8 +2,8 @@
 
 Folio is a small, focused place to capture thoughts without leaving what you are reading. It has two clients:
 
-- a desktop browser side panel with an offline local cache and optional cloud sync
-- an installable Android web app that syncs notes through a private cloud store
+- a desktop browser side panel with an offline local cache and account-scoped cloud sync
+- an installable Android web app with email sign-in and account-scoped sync
 
 ## What it does
 
@@ -14,11 +14,11 @@ Folio is a small, focused place to capture thoughts without leaving what you are
 - Searches, edits, and deletes saved notes
 - Exports the complete collection as Markdown or JSON
 
-Folio does not collect full page content. Notes stay local until cloud sync is explicitly connected with your private Folio access code.
+Folio does not collect full page content. Notes stay local until cloud sync is explicitly connected to a Folio account.
 
 ## Desktop cloud sync
 
-Open the extension menu, enter the same access code used by the web app, and choose **Connect and sync**. The first sync merges existing notes from both sides; later saves, edits, and deletions sync automatically. Folio keeps working offline and reconciles changes when the connection returns.
+Sign in at [folio.warmbeing.com](https://folio.warmbeing.com), open the account menu, and choose **Connect browser extension**. Enter the eight-character code in the extension menu and choose **Connect and sync**. The code expires after ten minutes and can be used once. The first sync merges existing notes from both sides; later saves, edits, and deletions sync automatically. Folio keeps working offline and reconciles changes when the connection returns.
 
 ## Android
 
@@ -54,8 +54,8 @@ bun test
 bun run dev
 ```
 
-Production requires `DATABASE_URL`, `FOLIO_ACCESS_KEY`, and `FOLIO_SESSION_SECRET`. The current deployment uses Vercel and a Neon Postgres database in Singapore.
+Production requires `DATABASE_URL`, `FOLIO_ACCESS_KEY`, `FOLIO_SESSION_SECRET`, `FOLIO_OWNER_EMAIL`, and the SMTP settings shown in `web/.env.example`. `FOLIO_ACCESS_KEY` is the invitation code required only when an email creates its account for the first time. The current deployment uses Vercel and a Neon Postgres database in Singapore.
 
 ## Data model
 
-Each note stores its text, optional page context, extracted tags, and creation/update timestamps. The extension and Android app both keep local IndexedDB caches and synchronize to Postgres. Conflicts use the newest update, while deletion markers prevent removed notes from reappearing after an offline sync.
+Each note belongs to one user and stores its text, optional page context, extracted tags, and creation/update timestamps. Email links create browser sessions; extension pairing codes exchange once for revocable device tokens. The extension and Android app both keep user-bound local IndexedDB caches and synchronize to Postgres. Conflicts use the newest update, while deletion markers prevent removed notes from reappearing after an offline sync.
