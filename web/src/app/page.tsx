@@ -2,14 +2,20 @@
 
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
+  LOCAL_SCOPE,
+  countLocalNotes,
   clearLocalData,
   consumeSharedContext,
   applySyncState,
+  getCachedWorkspace,
   getLocalSyncState,
   listLocalNotes,
-  prepareLocalForUser,
+  mergeLocalNotesIntoUser,
   queueDeletion,
   queueNote,
+  rememberLocalWorkspace,
+  rememberUserWorkspace,
+  scopeForUser,
 } from "@/lib/client-db";
 import {
   displayDomain,
@@ -20,7 +26,7 @@ import {
 import type { Note, PageContext, SyncState } from "@/lib/types";
 
 type SessionState = "checking" | "signed-in" | "signed-out" | "offline";
-type SaveState = "idle" | "saving" | "saved" | "queued";
+type SaveState = "idle" | "saving" | "saved" | "queued" | "local";
 type CurrentUser = { id: string; email: string };
 
 interface InstallPromptEvent extends Event {
@@ -44,6 +50,10 @@ export default function Home() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [session, setSession] = useState<SessionState>("checking");
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
+  const [workspaceScope, setWorkspaceScope] = useState(LOCAL_SCOPE);
+  const [localNoteCount, setLocalNoteCount] = useState(0);
+  const [showMergePrompt, setShowMergePrompt] = useState(false);
+  const [mergingLocal, setMergingLocal] = useState(false);
   const [saveState, setSaveState] = useState<SaveState>("idle");
   const [email, setEmail] = useState("");
   const [inviteCode, setInviteCode] = useState("");
@@ -55,18 +65,39 @@ export default function Home() {
   const [installPrompt, setInstallPrompt] = useState<InstallPromptEvent | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  const syncFromCloud = useCallback(async () => {
+  const syncFromCloud = useCallback(async (scope: string) => {
     const response = await fetch("/api/sync", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify(await getLocalSyncState()),
+      body: JSON.stringify(await getLocalSyncState(scope)),
     });
     if (response.status === 401) throw new Error("AUTH");
     if (!response.ok) throw new Error("SYNC");
     const state = await response.json() as SyncState;
-    setNotes(await applySyncState(state));
+    setNotes(await applySyncState(scope, state));
     setMessage("");
   }, []);
+
+  const openWorkspace = useCallback(async (scope: string) => {
+    setWorkspaceScope(scope);
+    setNotes(await listLocalNotes(scope));
+  }, []);
+
+  const activateAuthenticatedUser = useCallback(async (user: CurrentUser, offerLocalMerge = false) => {
+    const scope = await rememberUserWorkspace(user);
+    const localCount = await countLocalNotes();
+    setCurrentUser(user);
+    setLocalNoteCount(localCount);
+    await openWorkspace(scope);
+    setSession("signed-in");
+    try {
+      await syncFromCloud(scope);
+    } catch {
+      setSession("offline");
+      setMessage("当前离线，笔记将保存在本机，联网后继续同步。");
+    }
+    if (offerLocalMerge && localCount > 0) setShowMergePrompt(true);
+  }, [openWorkspace, syncFromCloud]);
 
   useEffect(() => {
     if ("serviceWorker" in navigator) {
@@ -92,8 +123,9 @@ export default function Home() {
     window.addEventListener("beforeinstallprompt", onInstallPrompt);
 
     void (async () => {
-      setNotes(await listLocalNotes());
-      if (new URLSearchParams(window.location.search).get("auth") === "expired") {
+      const search = new URLSearchParams(window.location.search);
+      const authResult = search.get("auth");
+      if (authResult === "expired") {
         setMessage("登录链接无效或已过期，请重新获取。");
       }
       const shared = await consumeSharedContext();
@@ -106,16 +138,27 @@ export default function Home() {
         const response = await fetch("/api/auth/session", { cache: "no-store" });
         const data = await response.json() as { authenticated: boolean; user?: CurrentUser | null };
         if (!data.authenticated || !data.user) {
+          await rememberLocalWorkspace();
+          await openWorkspace(LOCAL_SCOPE);
+          setLocalNoteCount(await countLocalNotes());
+          setCurrentUser(null);
           setSession("signed-out");
           return;
         }
-        setCurrentUser(data.user);
-        await prepareLocalForUser(data.user.id);
-        setSession("signed-in");
-        await syncFromCloud();
+        await activateAuthenticatedUser(data.user, authResult === "success");
       } catch {
+        const cached = await getCachedWorkspace();
+        await openWorkspace(cached.scope);
+        setCurrentUser(cached.user ?? null);
+        setLocalNoteCount(await countLocalNotes());
         setSession("offline");
         setMessage("当前离线，笔记将保存在本机。");
+      } finally {
+        if (authResult) {
+          search.delete("auth");
+          const query = search.toString();
+          window.history.replaceState(null, "", `${window.location.pathname}${query ? `?${query}` : ""}`);
+        }
       }
     })();
 
@@ -125,14 +168,14 @@ export default function Home() {
           const response = await fetch("/api/auth/session", { cache: "no-store" });
           const data = await response.json() as { authenticated: boolean; user?: CurrentUser | null };
           if (!data.authenticated || !data.user) {
+            await rememberLocalWorkspace();
+            await openWorkspace(LOCAL_SCOPE);
             setCurrentUser(null);
+            setLocalNoteCount(await countLocalNotes());
             setSession("signed-out");
             return;
           }
-          setCurrentUser(data.user);
-          await prepareLocalForUser(data.user.id);
-          setSession("signed-in");
-          await syncFromCloud();
+          await activateAuthenticatedUser(data.user);
         } catch {
           setSession("offline");
         }
@@ -144,7 +187,18 @@ export default function Home() {
       window.removeEventListener("beforeinstallprompt", onInstallPrompt);
       window.removeEventListener("online", onOnline);
     };
-  }, [syncFromCloud]);
+  }, [activateAuthenticatedUser, openWorkspace]);
+
+  useEffect(() => {
+    if (session !== "signed-in") return;
+    const syncWhenVisible = () => {
+      if (document.visibilityState === "visible" && navigator.onLine) {
+        void syncFromCloud(workspaceScope).catch(() => setSession("offline"));
+      }
+    };
+    document.addEventListener("visibilitychange", syncWhenVisible);
+    return () => document.removeEventListener("visibilitychange", syncWhenVisible);
+  }, [session, syncFromCloud, workspaceScope]);
 
   const visibleNotes = useMemo(() => {
     const normalized = query.trim().toLocaleLowerCase();
@@ -206,15 +260,16 @@ export default function Home() {
       updatedAt: now,
     };
 
-    await queueNote(note);
+    await queueNote(workspaceScope, note);
     setNotes((current) => sortNotes([...current.filter((item) => item.id !== note.id), note]));
+    if (workspaceScope === LOCAL_SCOPE) setLocalNoteCount((count) => count + (existing ? 0 : 1));
     setContent("");
     setContext({});
     setEditingId(null);
 
     if (session === "signed-in" && navigator.onLine) {
       try {
-        await syncFromCloud();
+        await syncFromCloud(workspaceScope);
         setSaveState("saved");
         window.setTimeout(() => setSaveState("idle"), 800);
         return;
@@ -222,8 +277,9 @@ export default function Home() {
         setSession("offline");
       }
     }
-    setSaveState("queued");
-    setMessage("已保存到本机，恢复网络后同步。");
+    const localOnly = workspaceScope === LOCAL_SCOPE;
+    setSaveState(localOnly ? "local" : "queued");
+    setMessage(localOnly ? "已保存到这台设备。连接 Folio Cloud 后可跨设备同步。" : "已保存到本机，恢复网络后同步。");
     window.setTimeout(() => setSaveState("idle"), 900);
   }
 
@@ -238,28 +294,53 @@ export default function Home() {
 
   async function handleDelete(note: Note) {
     if (!window.confirm("删除这条笔记？")) return;
-    await queueDeletion(note.id);
+    await queueDeletion(workspaceScope, note.id);
     setNotes((current) => current.filter((item) => item.id !== note.id));
+    if (workspaceScope === LOCAL_SCOPE) setLocalNoteCount((count) => Math.max(0, count - 1));
     if (editingId === note.id) await resetComposer();
     if (session === "signed-in" && navigator.onLine) {
       try {
-        await syncFromCloud();
+        await syncFromCloud(workspaceScope);
         return;
       } catch {
         setSession("offline");
       }
     }
-    setMessage("已在本机删除，恢复网络后同步。");
+    setMessage(workspaceScope === LOCAL_SCOPE ? "已从这台设备删除。" : "已在本机删除，恢复网络后同步。");
   }
 
   async function handleLogout() {
     await fetch("/api/auth/logout", { method: "POST" }).catch(() => undefined);
-    await clearLocalData();
-    setNotes([]);
+    await rememberLocalWorkspace();
+    await openWorkspace(LOCAL_SCOPE);
+    setLocalNoteCount(await countLocalNotes());
     setCurrentUser(null);
     setShowAccountMenu(false);
     setDeviceCode("");
     setSession("signed-out");
+  }
+
+  async function handleMergeLocalNotes() {
+    if (!currentUser || mergingLocal || !navigator.onLine) {
+      setMessage("需要联网后才能合并到 Folio Cloud。");
+      return;
+    }
+    setMergingLocal(true);
+    setMessage("");
+    try {
+      const result = await mergeLocalNotesIntoUser(currentUser.id);
+      setWorkspaceScope(result.scope);
+      setNotes(await listLocalNotes(result.scope));
+      await syncFromCloud(result.scope);
+      await clearLocalData(LOCAL_SCOPE);
+      setLocalNoteCount(0);
+      setShowMergePrompt(false);
+      setMessage(`已将 ${result.count} 条本地笔记安全合并到 Folio Cloud。`);
+    } catch {
+      setMessage("暂时无法完成合并，本地笔记仍安全保留在这台设备。");
+    } finally {
+      setMergingLocal(false);
+    }
   }
 
   async function handleCreateDeviceCode() {
@@ -301,8 +382,11 @@ export default function Home() {
       setMessage("暂时无法删除账号。");
       return;
     }
-    await clearLocalData();
-    setNotes([]);
+    const deletedScope = workspaceScope;
+    await clearLocalData(deletedScope);
+    await rememberLocalWorkspace();
+    await openWorkspace(LOCAL_SCOPE);
+    setLocalNoteCount(await countLocalNotes());
     setCurrentUser(null);
     setSession("signed-out");
   }
@@ -323,43 +407,6 @@ export default function Home() {
     );
   }
 
-  if (session === "signed-out") {
-    return (
-      <main className="login-shell">
-        <section className="login-card">
-          <div className="login-brand"><FolioMark /><span>Folio</span></div>
-          <p className="eyebrow">Every idea matters.</p>
-          <h1>每个想法，<br />都值得记下。</h1>
-          <p className="login-copy">一个随时打开、随处记录的轻量笔记工具。</p>
-          <form onSubmit={handleLogin}>
-            <label htmlFor="email">邮箱</label>
-            <input
-              id="email"
-              type="email"
-              value={email}
-              onChange={(event) => setEmail(event.target.value)}
-              placeholder="you@example.com"
-              autoComplete="email"
-              autoFocus
-            />
-            <label htmlFor="invite-code">邀请码 <span>首次使用时填写</span></label>
-            <input
-              id="invite-code"
-              type="password"
-              value={inviteCode}
-              onChange={(event) => setInviteCode(event.target.value)}
-              placeholder="已有账号可留空"
-              autoComplete="one-time-code"
-            />
-            <button disabled={!email.trim() || sendingLogin}>{sendingLogin ? "发送中…" : "发送登录链接"}</button>
-          </form>
-          {message && <p className="form-message" role="status">{message}</p>}
-          <a className="privacy-link" href="/privacy">隐私与数据</a>
-        </section>
-      </main>
-    );
-  }
-
   return (
     <main className="app-shell">
       <header className="topbar">
@@ -367,25 +414,61 @@ export default function Home() {
         <div className="top-actions">
           {installPrompt && <button className="install-button" onClick={() => void handleInstall()}>安装</button>}
           <span className={`sync-status ${session}`}>
-            <i /> {session === "signed-in" ? "已同步" : "离线"}
+            <i /> {session === "signed-in" ? "已同步" : session === "signed-out" ? "仅本机" : "离线"}
           </span>
           <button className="more-button" onClick={() => setShowAccountMenu((open) => !open)} aria-label="账号设置">•••</button>
           {showAccountMenu && (
             <div className="account-menu">
-              <div className="account-email">{currentUser?.email}</div>
-              <button onClick={() => void handleCreateDeviceCode()} disabled={creatingDeviceCode}>
-                {creatingDeviceCode ? "生成中…" : "连接浏览器插件"}
-              </button>
-              {deviceCode && (
-                <div className="device-code" role="status">
-                  <strong>{deviceCode}</strong>
-                  <span>10 分钟内在插件中输入</span>
-                </div>
+              {currentUser ? (
+                <>
+                  <div className="account-email">{currentUser.email}</div>
+                  <button onClick={() => void handleCreateDeviceCode()} disabled={creatingDeviceCode || session === "offline"}>
+                    {creatingDeviceCode ? "生成中…" : "连接浏览器插件"}
+                  </button>
+                  {deviceCode && (
+                    <div className="device-code" role="status">
+                      <strong>{deviceCode}</strong>
+                      <span>10 分钟内在插件中输入</span>
+                    </div>
+                  )}
+                  {localNoteCount > 0 && (
+                    <button onClick={() => void handleMergeLocalNotes()} disabled={mergingLocal || session === "offline"}>
+                      {mergingLocal ? "合并中…" : `合并本地笔记（${localNoteCount}）`}
+                    </button>
+                  )}
+                </>
+              ) : (
+                <>
+                  <div className="local-account-copy">
+                    <strong>Folio Local</strong>
+                    <span>无需账号，笔记仅保存在这台设备。</span>
+                  </div>
+                  <form className="account-login" onSubmit={handleLogin}>
+                    <label htmlFor="email">连接 Folio Cloud</label>
+                    <input
+                      id="email"
+                      type="email"
+                      value={email}
+                      onChange={(event) => setEmail(event.target.value)}
+                      placeholder="邮箱"
+                      autoComplete="email"
+                    />
+                    <input
+                      id="invite-code"
+                      type="password"
+                      value={inviteCode}
+                      onChange={(event) => setInviteCode(event.target.value)}
+                      placeholder="邀请码 · 已有账号可留空"
+                      autoComplete="one-time-code"
+                    />
+                    <button disabled={!email.trim() || sendingLogin}>{sendingLogin ? "发送中…" : "发送登录链接"}</button>
+                  </form>
+                </>
               )}
               <button onClick={handleExport}>导出 JSON</button>
               <a href="/privacy">隐私与数据</a>
-              <button onClick={() => void handleLogout()}>退出登录</button>
-              <button className="danger" onClick={() => void handleDeleteAccount()}>删除账号</button>
+              {currentUser && <button onClick={() => void handleLogout()}>退出登录</button>}
+              {currentUser && <button className="danger" onClick={() => void handleDeleteAccount()}>删除账号</button>}
             </div>
           )}
         </div>
@@ -393,8 +476,34 @@ export default function Home() {
 
       <div className="content-column">
         <section className="intro">
-          <h1>新建笔记</h1>
+          <p>Every idea matters.</p>
+          <h1>{session === "signed-out" ? "记下此刻" : "新建笔记"}</h1>
         </section>
+
+        {session === "signed-out" && (
+          <aside className="local-notice">
+            <div>
+              <strong>仅保存在这台设备</strong>
+              <span>清除浏览器数据或卸载应用可能导致笔记丢失。</span>
+            </div>
+            <button onClick={() => setShowAccountMenu(true)}>连接云端</button>
+          </aside>
+        )}
+
+        {showMergePrompt && localNoteCount > 0 && currentUser && (
+          <aside className="merge-notice" role="dialog" aria-label="合并本地笔记">
+            <div>
+              <strong>发现 {localNoteCount} 条本地笔记</strong>
+              <span>确认后才会复制到 {currentUser.email}，同步成功前不会删除本地数据。</span>
+            </div>
+            <div className="merge-actions">
+              <button className="merge-later" onClick={() => setShowMergePrompt(false)}>暂不合并</button>
+              <button onClick={() => void handleMergeLocalNotes()} disabled={mergingLocal}>
+                {mergingLocal ? "合并中…" : "合并到云端"}
+              </button>
+            </div>
+          </aside>
+        )}
 
         <section className="composer" aria-label="新笔记">
           {(context.url || context.selection || context.title) && (
@@ -431,7 +540,7 @@ export default function Home() {
             <div className="composer-actions">
               {editingId && <button className="cancel-button" onClick={resetComposer}>取消</button>}
               <button className={`save-button ${saveState}`} disabled={!canSave || saveState === "saving"} onClick={() => void handleSave()}>
-                {saveState === "saving" ? "保存中…" : saveState === "saved" ? "已保存 ✓" : saveState === "queued" ? "待同步 ✓" : "保存"}
+                {saveState === "saving" ? "保存中…" : saveState === "saved" ? "已保存 ✓" : saveState === "queued" ? "待同步 ✓" : saveState === "local" ? "已存本机 ✓" : "保存"}
               </button>
             </div>
           </footer>

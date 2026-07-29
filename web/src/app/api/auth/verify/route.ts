@@ -8,5 +8,5 @@ export async function GET(request: Request) {
     return NextResponse.redirect(new URL("/?auth=expired", url));
   }
   await createSession(userId);
-  return NextResponse.redirect(new URL("/", url));
+  return NextResponse.redirect(new URL("/?auth=success", url));
 }

@@ -190,6 +190,7 @@ button { color: inherit; }
   box-shadow: 0 0 0 4px rgba(113, 150, 106, .11);
 }
 .sync-status.offline i { background: #b59654; box-shadow: 0 0 0 4px rgba(181, 150, 84, .12); }
+.sync-status.signed-out i { background: #a98a51; box-shadow: 0 0 0 4px rgba(169, 138, 81, .12); }
 .install-button {
   border: 1px solid rgba(119, 88, 31, .18);
   border-radius: 8px;
@@ -215,7 +216,7 @@ button { color: inherit; }
   right: 0;
   z-index: 20;
   display: grid;
-  width: min(270px, calc(100vw - 28px));
+  width: min(300px, calc(100vw - 28px));
   overflow: hidden;
   border: 1px solid rgba(61, 53, 38, .13);
   border-radius: 14px;
@@ -232,6 +233,45 @@ button { color: inherit; }
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+.local-account-copy {
+  display: grid;
+  gap: 3px;
+  padding: 10px 10px 12px;
+  border-bottom: 1px solid #f0eadf;
+}
+.local-account-copy strong { color: #544b3c; font-size: 12px; }
+.local-account-copy span { color: #958d80; font-size: 9px; line-height: 1.5; }
+.account-login {
+  display: grid;
+  gap: 7px;
+  margin: 7px 0;
+  padding: 7px;
+  border-bottom: 1px solid #f0eadf;
+}
+.account-login label { color: #685d4b; font-size: 10px; font-weight: 650; }
+.account-login input {
+  width: 100%;
+  height: 38px;
+  border: 1px solid #ded6c6;
+  border-radius: 9px;
+  outline: 0;
+  padding: 0 10px;
+  background: #fffdfa;
+  color: #2f2b24;
+  font-size: 11px;
+}
+.account-login input:focus { border-color: rgba(142, 104, 32, .52); box-shadow: 0 0 0 3px rgba(142, 104, 32, .08); }
+.account-login button {
+  height: 38px;
+  border: 0;
+  border-radius: 9px;
+  background: #302d27;
+  color: #fffdf8;
+  font-size: 11px;
+  font-weight: 650;
+  cursor: pointer;
+}
+.account-login button:disabled { cursor: not-allowed; opacity: .34; }
 .account-menu > button,
 .account-menu > a {
   border: 0;
@@ -284,6 +324,41 @@ button { color: inherit; }
   line-height: 1.28;
   letter-spacing: -.035em;
 }
+
+.local-notice,
+.merge-notice {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  margin: 0 14px 16px;
+  border: 1px solid rgba(139, 105, 43, .16);
+  border-radius: 14px;
+  padding: 12px 13px 12px 15px;
+  background: rgba(238, 226, 201, .72);
+}
+.local-notice > div,
+.merge-notice > div:first-child { display: grid; gap: 3px; }
+.local-notice strong,
+.merge-notice strong { color: #5f5038; font-size: 11px; }
+.local-notice span,
+.merge-notice span { color: #8a7d69; font-size: 9px; line-height: 1.5; }
+.local-notice button,
+.merge-actions button {
+  flex: none;
+  border: 0;
+  border-radius: 9px;
+  padding: 8px 10px;
+  background: #6f572b;
+  color: #fffaf0;
+  font-size: 10px;
+  font-weight: 650;
+  cursor: pointer;
+}
+.merge-notice { align-items: flex-start; background: rgba(232, 239, 226, .78); border-color: rgba(94, 126, 86, .18); }
+.merge-actions { display: flex; flex: none; gap: 5px; }
+.merge-actions .merge-later { background: transparent; color: #786f61; }
+.merge-actions button:disabled { cursor: wait; opacity: .5; }
 
 .composer {
   margin: 0 14px 16px;
@@ -414,6 +489,7 @@ button { color: inherit; }
 .save-button:disabled { cursor: not-allowed; opacity: .34; }
 .save-button.saved { background: #607f5b; }
 .save-button.queued { background: #917136; }
+.save-button.local { background: #735d34; }
 
 .notice {
   display: flex;
@@ -569,6 +645,11 @@ button { color: inherit; }
   .library { padding-inline: 0; }
   .note-actions { opacity: 0; transition: opacity 120ms ease; }
   .note-card:hover .note-actions, .note-actions:focus-within { opacity: 1; }
+}
+
+@media (max-width: 520px) {
+  .merge-notice { flex-direction: column; }
+  .merge-actions { width: 100%; justify-content: flex-end; }
 }
 
 @media (prefers-reduced-motion: reduce) {

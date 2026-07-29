@@ -1,6 +1,6 @@
-const CACHE_NAME = "folio-shell-v1";
+const CACHE_NAME = "folio-shell-v2";
 const DB_NAME = "folio-mobile";
-const DB_VERSION = 1;
+const DB_VERSION = 3;
 
 function openDatabase() {
   return new Promise((resolve, reject) => {
@@ -16,6 +16,21 @@ function openDatabase() {
       }
       if (!db.objectStoreNames.contains("meta")) {
         db.createObjectStore("meta");
+      }
+      if (!db.objectStoreNames.contains("deletions")) {
+        db.createObjectStore("deletions", { keyPath: "id" });
+      }
+      if (!db.objectStoreNames.contains("scoped-notes")) {
+        const notes = db.createObjectStore("scoped-notes", { keyPath: "storageKey" });
+        notes.createIndex("by-scope", "scope");
+      }
+      if (!db.objectStoreNames.contains("scoped-outbox")) {
+        const outbox = db.createObjectStore("scoped-outbox", { keyPath: "storageKey" });
+        outbox.createIndex("by-scope", "scope");
+      }
+      if (!db.objectStoreNames.contains("scoped-deletions")) {
+        const deletions = db.createObjectStore("scoped-deletions", { keyPath: "storageKey" });
+        deletions.createIndex("by-scope", "scope");
       }
     };
     request.onsuccess = () => resolve(request.result);
