@@ -7,7 +7,6 @@ import type { Deletion, Note, SharedContext, SyncState } from "./types";
 export const LOCAL_SCOPE = "local";
 const DATABASE_NAME = "folio-mobile";
 const LOCAL_DATABASE_NAME = "folio-mobile-local";
-const MIGRATION_KEY = "scoped-storage-v3";
 
 interface ScopedNote {
   storageKey: string;
@@ -120,7 +119,6 @@ function createLocalDatabase() {
 
 let database: ReturnType<typeof createDatabase> | undefined;
 let localDatabase: ReturnType<typeof createLocalDatabase> | undefined;
-let migration: Promise<void> | undefined;
 
 function getDatabase() {
   database ??= createDatabase();
@@ -136,53 +134,8 @@ function hasScopedStorage(db: IDBPDatabase<FolioMobileDatabase>): boolean {
   return db.objectStoreNames.contains("scoped-notes");
 }
 
-async function migrateLegacyStorage(db: IDBPDatabase<FolioMobileDatabase>): Promise<void> {
-  if (await db.get("meta", MIGRATION_KEY)) return;
-
-  const transaction = db.transaction([
-    "notes",
-    "outbox",
-    "deletions",
-    "scoped-notes",
-    "scoped-outbox",
-    "scoped-deletions",
-    "meta",
-  ], "readwrite");
-  const meta = transaction.objectStore("meta");
-  const [notes, outbox, deletions, legacyUserId] = await Promise.all([
-    transaction.objectStore("notes").getAll(),
-    transaction.objectStore("outbox").getAll(),
-    transaction.objectStore("deletions").getAll(),
-    meta.get("user-id") as Promise<string | undefined>,
-  ]);
-  const scope = legacyUserId ? userScope(legacyUserId) : LOCAL_SCOPE;
-
-  await Promise.all([
-    ...notes.map((note) => transaction.objectStore("scoped-notes").put({
-      storageKey: storageKey(scope, note.id), scope, note,
-    })),
-    ...outbox.map((note) => transaction.objectStore("scoped-outbox").put({
-      storageKey: storageKey(scope, note.id), scope, note,
-    })),
-    ...deletions.map((deletion) => transaction.objectStore("scoped-deletions").put({
-      storageKey: storageKey(scope, deletion.id), scope, deletion,
-    })),
-    transaction.objectStore("notes").clear(),
-    transaction.objectStore("outbox").clear(),
-    transaction.objectStore("deletions").clear(),
-    meta.put(scope, "last-scope"),
-    meta.put(true, MIGRATION_KEY),
-  ]);
-  await transaction.done;
-}
-
 async function readyDatabase(): Promise<IDBPDatabase<FolioMobileDatabase>> {
-  const db = await getDatabase();
-  if (hasScopedStorage(db)) {
-    migration ??= migrateLegacyStorage(db);
-    await migration;
-  }
-  return db;
+  return getDatabase();
 }
 
 async function readLegacyScope(db: IDBPDatabase<FolioMobileDatabase>): Promise<SyncState> {
