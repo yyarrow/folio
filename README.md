@@ -20,6 +20,10 @@ Folio does not collect full page content. Notes stay local until cloud sync is e
 
 Sign in at [folio.warmbeing.com](https://folio.warmbeing.com), open the account menu, and choose **Connect browser extension**. Enter the eight-character code in the extension menu and choose **Connect and sync**. The code expires after ten minutes and can be used once. The first sync merges existing notes from both sides; later saves, edits, and deletions sync automatically. Folio keeps working offline and reconciles changes when the connection returns.
 
+## Browser extension
+
+[Download the latest Chrome/Edge extension](https://github.com/yyarrow/folio/releases/latest/download/folio-extension.zip), unzip it, open `chrome://extensions`, enable **Developer mode**, and choose **Load unpacked**.
+
 ## Android
 
 Open [folio.warmbeing.com](https://folio.warmbeing.com) in Chrome, then choose **Install app** or **Add to Home screen** from Chrome's menu. No account is required for local notes. Once installed, Folio appears in Android's share sheet, so text and links can be sent directly from WeRead or another app.

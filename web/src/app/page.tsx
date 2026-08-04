@@ -29,6 +29,8 @@ type SessionState = "checking" | "signed-in" | "signed-out" | "offline" | "stora
 type SaveState = "idle" | "saving" | "saved" | "queued" | "local";
 type CurrentUser = { id: string; email: string };
 
+const EXTENSION_DOWNLOAD_URL = "https://github.com/yyarrow/folio/releases/latest/download/folio-extension.zip";
+
 interface InstallPromptEvent extends Event {
   prompt(): Promise<void>;
   userChoice: Promise<{ outcome: "accepted" | "dismissed" }>;
@@ -399,6 +401,7 @@ export default function Home() {
     await installPrompt.prompt();
     await installPrompt.userChoice;
     setInstallPrompt(null);
+    setShowAccountMenu(false);
   }
 
   if (session === "checking") {
@@ -426,13 +429,24 @@ export default function Home() {
       <header className="topbar">
         <div className="brand"><FolioMark /><span>Folio</span></div>
         <div className="top-actions">
-          {installPrompt && <button className="install-button" onClick={() => void handleInstall()}>安装</button>}
+          <button
+            className="install-button"
+            onClick={() => setShowAccountMenu((open) => !open)}
+            aria-expanded={showAccountMenu}
+          >
+            安装
+          </button>
           <span className={`sync-status ${session}`}>
             <i /> {session === "signed-in" ? "已同步" : session === "signed-out" ? "仅本机" : "离线"}
           </span>
           <button className="more-button" onClick={() => setShowAccountMenu((open) => !open)} aria-label="账号设置">•••</button>
           {showAccountMenu && (
             <div className="account-menu">
+              <div className="install-options">
+                {installPrompt && <button onClick={() => void handleInstall()}>安装网页版</button>}
+                <a href={EXTENSION_DOWNLOAD_URL}>下载浏览器插件</a>
+                <small>下载并解压 → 打开 chrome://extensions → 开启开发者模式并加载已解压的扩展。</small>
+              </div>
               {currentUser ? (
                 <>
                   <div className="account-email">{currentUser.email}</div>
