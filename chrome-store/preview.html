@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Folio store screenshot</title>
+    <link rel="stylesheet" href="../entrypoints/sidepanel/style.css" />
+    <style>
+      html, body { width: 1280px; height: 800px; overflow: hidden; }
+      body { background: #ded8cc; }
+      .store-shot { display: grid; grid-template-columns: minmax(0, 1fr) 410px; width: 1280px; height: 800px; }
+      .browser-page { position: relative; overflow: hidden; padding: 70px 92px; background: #fbfaf7; }
+      .browser-chrome { position: absolute; inset: 0 0 auto; display: flex; align-items: center; gap: 12px; height: 44px; padding: 0 18px; border-bottom: 1px solid #e4e0d8; background: #f2f0eb; }
+      .browser-dots { display: flex; gap: 6px; }
+      .browser-dots i { width: 9px; height: 9px; border-radius: 50%; background: #c9c4ba; }
+      .address { flex: 1; height: 25px; border-radius: 12px; padding: 5px 14px; background: #fff; color: #999286; font: 10px ui-sans-serif, sans-serif; }
+      .article { max-width: 650px; margin: 0 auto; }
+      .article .kicker { color: #a17b31; font: 650 11px ui-sans-serif, sans-serif; letter-spacing: .11em; text-transform: uppercase; }
+      .article h1 { max-width: 570px; margin: 15px 0 18px; color: #27231d; font: 500 44px/1.08 Georgia, serif; letter-spacing: -.025em; }
+      .article .byline { color: #9a9387; font: 11px ui-sans-serif, sans-serif; }
+      .article p { color: #625c52; font: 17px/1.72 Georgia, serif; }
+      .article mark { padding: 3px 2px; background: #f0dfad; color: inherit; }
+      .sidepanel-frame { border-left: 1px solid #ccc5b8; box-shadow: -12px 0 32px rgba(55, 49, 39, .11); background: #f4f0e7; }
+      .sidepanel-frame .app-shell { height: 800px; overflow: hidden; }
+      .sidepanel-frame .composer { margin-top: 14px; }
+      .sidepanel-frame .composer textarea { min-height: 82px; resize: none; }
+      .sidepanel-frame .library { padding-bottom: 12px; }
+      .sidepanel-frame .note-actions { opacity: 1; }
+      .sidepanel-frame .note-card { padding-block: 10px 8px; }
+      .sidepanel-frame .note-copy p { font-size: 12px; }
+    </style>
+  </head>
+  <body>
+    <div class="store-shot">
+      <section class="browser-page">
+        <div class="browser-chrome">
+          <span class="browser-dots"><i></i><i></i><i></i></span>
+          <div class="address">warmbeing.com/journal/small-ideas</div>
+        </div>
+        <article class="article">
+          <span class="kicker" data-en="Creative practice" data-zh="创作练习">Creative practice</span>
+          <h1 data-en="How small ideas become meaningful work" data-zh="微小的想法，如何长成有意义的作品">How small ideas become meaningful work</h1>
+          <div class="byline" data-en="A five-minute field note · August 27" data-zh="五分钟阅读札记 · 8 月 27 日">A five-minute field note · August 27</div>
+          <p data-en="Good ideas rarely arrive as complete plans. They show up as a sentence, a question, or a detail that stays with us." data-zh="好想法很少以完整计划的样子出现。它可能只是一句话、一个问题，或某个一直留在心里的细节。">Good ideas rarely arrive as complete plans. They show up as a sentence, a question, or a detail that stays with us.</p>
+          <p><mark data-en="The useful habit is not collecting everything. It is noticing what has energy, then giving it a place to grow." data-zh="真正有用的习惯并不是收藏一切，而是留意那些仍有能量的片刻，再给它一个继续生长的地方。">The useful habit is not collecting everything. It is noticing what has energy, then giving it a place to grow.</mark></p>
+          <p data-en="A quiet capture tool protects that fragile first step. The note can stay small today and still become something larger tomorrow." data-zh="安静的记录工具保护了这脆弱的第一步。今天它可以只是一条小笔记，明天仍可能成为更大的东西。">A quiet capture tool protects that fragile first step. The note can stay small today and still become something larger tomorrow.</p>
+        </article>
+      </section>
+
+      <aside class="sidepanel-frame">
+        <main class="app-shell">
+          <header class="topbar">
+            <div class="brand">
+              <svg aria-hidden="true" class="folio-mark" viewBox="0 0 32 32"><path d="M8 5.5h12a4 4 0 0 1 4 4v17H11a3 3 0 0 1-3-3v-18Z"></path><path d="M11 5.5v16.8c0 1.7-3 1.7-3 0M14.5 11h5M14.5 15h5M14.5 19h3.5"></path></svg>
+              <span>Folio</span>
+            </div>
+            <div class="top-actions"><span class="local-status synced"><i></i> <span data-en="Synced" data-zh="已同步">Synced</span></span><button class="icon-button">•••</button></div>
+          </header>
+
+          <section class="composer">
+            <div class="composer-heading"><span data-en="Capture this moment" data-zh="记下此刻">Capture this moment</span></div>
+            <div class="context-card">
+              <blockquote data-en="The useful habit is not collecting everything. It is noticing what has energy, then giving it a place to grow." data-zh="真正有用的习惯并不是收藏一切，而是留意那些仍有能量的片刻，再给它一个继续生长的地方。">The useful habit is not collecting everything. It is noticing what has energy, then giving it a place to grow.</blockquote>
+              <a><span class="source-dot">↗</span><span data-en="How small ideas become meaningful work" data-zh="微小的想法，如何长成有意义的作品">How small ideas become meaningful work</span><small>warmbeing.com</small></a>
+            </div>
+            <textarea readonly data-en-placeholder="What is worth keeping from this moment?" data-zh-placeholder="此刻有什么值得留下？">This connects to the idea of leaving room for unfinished thoughts. #creative</textarea>
+            <div class="composer-footer"><div class="tag-preview"><span data-en="#creative" data-zh="#创作">#creative</span></div><button class="save-button"><span data-en="Save" data-zh="保存">Save</span><kbd>⌘↵</kbd></button></div>
+          </section>
+
+          <section class="library">
+            <div class="library-heading"><h1 data-en="Recent" data-zh="最近">Recent</h1><span>3</span></div>
+            <label class="search-field"><span>⌕</span><input readonly data-en-placeholder="Search notes, pages, or tags" data-zh-placeholder="搜索笔记、网页或标签" /></label>
+            <div class="note-list">
+              <article class="note-card"><div class="note-copy"><p data-en="Leave room for unfinished thoughts. #creative" data-zh="给尚未完成的想法留一点空间。#创作">Leave room for unfinished thoughts. #creative</p></div><div class="note-tags"><span data-en="#creative" data-zh="#创作">#creative</span></div><footer><div class="note-meta"><time>10:42</time><a>warmbeing.com</a></div><div class="note-actions"><button data-en="Edit" data-zh="编辑">Edit</button><button class="danger" data-en="Delete" data-zh="删除">Delete</button></div></footer></article>
+              <article class="note-card"><div class="note-copy"><p data-en="A question worth returning to tomorrow. #journal" data-zh="一个值得明天继续想的问题。#札记">A question worth returning to tomorrow. #journal</p></div><footer><div class="note-meta"><time data-en="Aug 26, 21:08" data-zh="8月26日 21:08">Aug 26, 21:08</time><a>example.com</a></div><div class="note-actions"><button data-en="Edit" data-zh="编辑">Edit</button><button class="danger" data-en="Delete" data-zh="删除">Delete</button></div></footer></article>
+            </div>
+          </section>
+        </main>
+      </aside>
+    </div>
+    <script>
+      const language = new URLSearchParams(location.search).get("lang") === "zh" ? "zh" : "en";
+      document.documentElement.lang = language === "zh" ? "zh-CN" : "en";
+      document.querySelectorAll("[data-en]").forEach((element) => { element.textContent = element.dataset[language]; });
+      document.querySelectorAll("[data-en-placeholder]").forEach((element) => { element.placeholder = element.dataset[`${language}Placeholder`]; });
+      const textarea = document.querySelector("textarea");
+      if (language === "zh") textarea.value = "这让我想到：要为尚未完成的念头留一点空间。#创作";
+    </script>
+  </body>
+</html>

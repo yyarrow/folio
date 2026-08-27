@@ -733,3 +733,4 @@ button { color: inherit; }
 .legal-card p { color: #756e62; font-size: 13px; line-height: 1.85; }
 .legal-card a { color: #806633; }
 .legal-card small { display: block; margin-top: 34px; color: #aaa294; font-size: 10px; }
+.legal-card hr { height: 1px; margin: 34px 0; border: 0; background: #e8dfd1; }

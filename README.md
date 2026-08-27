@@ -13,6 +13,7 @@ Folio is a small, focused place to capture thoughts without leaving what you are
 - Recognizes inline `#tags`
 - Searches, edits, and deletes saved notes
 - Exports the complete collection as Markdown or JSON
+- Follows the browser language with complete English and Simplified Chinese interfaces
 
 Folio does not collect full page content. Notes stay local until cloud sync is explicitly connected to a Folio account.
 

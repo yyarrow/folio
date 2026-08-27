@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Folio small promotional tile</title>
+    <style>
+      * { box-sizing: border-box; }
+      html, body { width: 440px; height: 280px; margin: 0; overflow: hidden; }
+      body { display: grid; place-items: center; background: radial-gradient(circle at 78% 15%, #d7c184 0 6%, transparent 28%), linear-gradient(135deg, #6b542b, #aa8641); }
+      .paper { position: relative; width: 238px; height: 178px; border-radius: 16px; background: #fffdf7; box-shadow: 0 22px 45px rgba(45, 31, 10, .3); transform: rotate(-4deg); }
+      .paper::before, .paper::after { content: ""; position: absolute; left: 74px; height: 7px; border-radius: 4px; background: #ded4bf; }
+      .paper::before { top: 78px; width: 112px; box-shadow: 0 25px #e8e0d1, 0 50px #e8e0d1; }
+      .paper::after { top: 103px; width: 80px; }
+      svg { position: absolute; top: 24px; left: 24px; width: 42px; height: 42px; fill: #efe3c9; stroke: #5f4c25; stroke-width: 1.55; stroke-linecap: round; stroke-linejoin: round; }
+      .spark { position: absolute; right: 33px; top: 29px; width: 13px; height: 13px; border-radius: 50%; background: #d8ad52; box-shadow: 0 0 0 8px rgba(216, 173, 82, .15); }
+    </style>
+  </head>
+  <body>
+    <div class="paper">
+      <svg aria-hidden="true" viewBox="0 0 32 32"><path d="M8 5.5h12a4 4 0 0 1 4 4v17H11a3 3 0 0 1-3-3v-18Z"></path><path d="M11 5.5v16.8c0 1.7-3 1.7-3 0M14.5 11h5M14.5 15h5M14.5 19h3.5"></path></svg>
+      <span class="spark"></span>
+    </div>
+  </body>
+</html>

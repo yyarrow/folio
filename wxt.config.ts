@@ -8,17 +8,18 @@ export default defineConfig({
     developmentIndicator: false,
   },
   manifest: ({ browser }) => ({
-    name: "Folio",
-    short_name: "Folio",
-    description: "Capture thoughts, selections, and pages without leaving your flow.",
-    version: "0.3.0",
+    default_locale: "en",
+    name: "__MSG_extensionName__",
+    short_name: "__MSG_extensionName__",
+    description: "__MSG_extensionDescription__",
+    version: "0.4.0",
     host_permissions: ["https://folio.warmbeing.com/*"],
     permissions:
       browser === "firefox"
-        ? ["activeTab", "storage", "tabs"]
-        : ["activeTab", "scripting", "sidePanel", "storage", "tabs"],
+        ? ["activeTab", "storage"]
+        : ["activeTab", "scripting", "sidePanel", "storage"],
     action: {
-      default_title: "Open Folio",
+      default_title: "__MSG_openFolio__",
     },
     commands: {
       _execute_action: {
@@ -26,7 +27,7 @@ export default defineConfig({
           default: "Ctrl+Shift+Y",
           mac: "Command+Shift+Y",
         },
-        description: "Open Folio",
+        description: "__MSG_openFolio__",
       },
     },
     ...(browser === "firefox"

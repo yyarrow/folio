@@ -1,5 +1,6 @@
 import { type FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { downloadExport } from "../../lib/export";
+import { t } from "../../lib/i18n";
 import { listNotes, removeNote, saveNote } from "../../lib/db";
 import { clearDraft, loadDraft, persistDraft } from "../../lib/draft";
 import {
@@ -86,16 +87,16 @@ export default function App() {
       await refreshNotes();
       setConnected(true);
       setSyncStatus("synced");
-      if (showFeedback) setSyncMessage("同步完成");
+      if (showFeedback) setSyncMessage(t("syncComplete"));
     } catch (error) {
       if (error instanceof CloudSyncError && error.code === "unauthorized") {
         await disconnectCloud();
         setConnected(false);
         setSyncStatus("error");
-        setSyncMessage("设备连接已失效，请重新连接。");
+        setSyncMessage(t("syncConnectionExpired"));
       } else {
         setSyncStatus("offline");
-        if (showFeedback) setSyncMessage("暂时无法连接，笔记已保存在本地。");
+        if (showFeedback) setSyncMessage(t("syncUnavailableLocal"));
       }
     }
   }, [refreshNotes]);
@@ -193,7 +194,7 @@ export default function App() {
   }
 
   async function handleDelete(note: Note) {
-    if (!window.confirm("删除这条笔记？")) return;
+    if (!window.confirm(t("deleteConfirm"))) return;
     await removeNote(note.id);
     if (editingId === note.id) await resetComposer();
     await refreshNotes();
@@ -209,18 +210,18 @@ export default function App() {
       setConnected(true);
       setDeviceCode("");
       setSyncStatus("synced");
-      setSyncMessage("已连接，现有笔记已同步。");
+      setSyncMessage(t("connectedSynced"));
       await refreshNotes();
     } catch (error) {
       if (error instanceof CloudSyncError && error.code === "unauthorized") {
         setSyncStatus("error");
-        setSyncMessage("连接码无效或已过期。");
+        setSyncMessage(t("codeInvalidExpired"));
       } else if (error instanceof CloudSyncError && error.code === "account-mismatch") {
         setSyncStatus("error");
-        setSyncMessage("这是另一个账号。为避免混合笔记，此设备暂不允许直接切换。");
+        setSyncMessage(t("accountMismatch"));
       } else {
         setSyncStatus("offline");
-        setSyncMessage("暂时无法连接云端。");
+        setSyncMessage(t("cloudUnavailable"));
       }
     }
   }
@@ -229,15 +230,15 @@ export default function App() {
     await disconnectCloud();
     setConnected(false);
     setSyncStatus("local");
-    setSyncMessage("已断开，笔记仍保留在本地。");
+    setSyncMessage(t("disconnectedLocal"));
   }
 
   const syncLabel: Record<SyncStatus, string> = {
-    local: "本地",
-    syncing: "同步中",
-    synced: "已同步",
-    offline: "待同步",
-    error: "同步失败",
+    local: t("syncStatusLocal"),
+    syncing: t("syncStatusSyncing"),
+    synced: t("syncStatusSynced"),
+    offline: t("syncStatusOffline"),
+    error: t("syncStatusError"),
   };
 
   return (
@@ -249,44 +250,44 @@ export default function App() {
         </div>
         <div className="top-actions">
           <span className={`local-status ${syncStatus}`}><i /> {syncLabel[syncStatus]}</span>
-          <button className="icon-button" onClick={() => setShowMenu((open) => !open)} aria-label="More options">•••</button>
+          <button className="icon-button" onClick={() => setShowMenu((open) => !open)} aria-label={t("moreOptions")}>•••</button>
           {showMenu && (
             <div className="export-menu">
               {connected ? (
                 <>
-                  <button onClick={() => void runSync(true)}>立即同步</button>
-                  <button onClick={() => void handleDisconnect()}>断开云端</button>
+                  <button onClick={() => void runSync(true)}>{t("syncNow")}</button>
+                  <button onClick={() => void handleDisconnect()}>{t("disconnectCloud")}</button>
                 </>
               ) : (
                 <form className="sync-connect" onSubmit={(event) => void handleConnect(event)}>
-                  <label htmlFor="cloud-device-code">连接云端</label>
+                  <label htmlFor="cloud-device-code">{t("connectCloud")}</label>
                   <input
                     id="cloud-device-code"
                     type="text"
                     value={deviceCode}
                     onChange={(event) => setDeviceCode(event.target.value.toUpperCase())}
-                    placeholder="输入网页生成的连接码"
+                    placeholder={t("deviceCodePlaceholder")}
                     autoComplete="one-time-code"
                     maxLength={8}
                   />
                   <button className="connect-button" disabled={!deviceCode.trim() || syncStatus === "syncing"}>
-                    {syncStatus === "syncing" ? "连接中…" : "连接并同步"}
+                    {syncStatus === "syncing" ? t("connecting") : t("connectAndSync")}
                   </button>
                 </form>
               )}
               <div className="menu-divider" />
-              <button onClick={() => { downloadExport(notes, "markdown"); setShowMenu(false); }}>导出 Markdown</button>
-              <button onClick={() => { downloadExport(notes, "json"); setShowMenu(false); }}>导出 JSON</button>
+              <button onClick={() => { downloadExport(notes, "markdown"); setShowMenu(false); }}>{t("exportMarkdown")}</button>
+              <button onClick={() => { downloadExport(notes, "json"); setShowMenu(false); }}>{t("exportJson")}</button>
               {syncMessage && <p className="sync-message" role="status">{syncMessage}</p>}
             </div>
           )}
         </div>
       </header>
 
-      <section className="composer" aria-label="New note">
+      <section className="composer" aria-label={t("newNote")}>
         <div className="composer-heading">
-          <span>{editingId ? "编辑笔记" : "记下此刻"}</span>
-          {editingId && <button className="text-button" onClick={() => void resetComposer()}>取消</button>}
+          <span>{editingId ? t("editNote") : t("captureMoment")}</span>
+          {editingId && <button className="text-button" onClick={() => void resetComposer()}>{t("cancel")}</button>}
         </div>
 
         {(context.url || context.selection) && (
@@ -312,31 +313,31 @@ export default function App() {
               void handleSave();
             }
           }}
-          placeholder="此刻有什么值得留下？"
+          placeholder={t("composerPlaceholder")}
           rows={6}
         />
 
         <div className="composer-footer">
           <div className="tag-preview">
             {tags.slice(0, 3).map((tag) => <span key={tag}>#{tag}</span>)}
-            {!tags.length && <span className="hint">需要时可用 #标签</span>}
+            {!tags.length && <span className="hint">{t("tagHint")}</span>}
           </div>
           <button className={`save-button ${status}`} disabled={!canSave || status === "saving"} onClick={() => void handleSave()}>
-            {status === "saving" ? "保存中…" : status === "saved" ? "已保存 ✓" : "保存"}
+            {status === "saving" ? t("saving") : status === "saved" ? t("saved") : t("save")}
             {status === "idle" && <kbd>⌘↵</kbd>}
           </button>
         </div>
       </section>
 
-      <section className="library" aria-label="Notes">
+      <section className="library" aria-label={t("notes")}>
         <div className="library-heading">
-          <h1>最近</h1>
+          <h1>{t("recent")}</h1>
           <span>{notes.length}</span>
         </div>
         <label className="search-field">
           <span>⌕</span>
-          <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜索笔记、网页或标签" />
-          {query && <button onClick={() => setQuery("")} aria-label="Clear search">×</button>}
+          <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder={t("searchPlaceholder")} />
+          {query && <button onClick={() => setQuery("")} aria-label={t("clearSearch")}>×</button>}
         </label>
 
         <div className="note-list">
@@ -357,8 +358,8 @@ export default function App() {
                   )}
                 </div>
                 <div className="note-actions">
-                  <button onClick={() => handleEdit(note)}>编辑</button>
-                  <button className="danger" onClick={() => void handleDelete(note)}>删除</button>
+                  <button onClick={() => handleEdit(note)}>{t("edit")}</button>
+                  <button className="danger" onClick={() => void handleDelete(note)}>{t("delete")}</button>
                 </div>
               </footer>
             </article>
@@ -367,8 +368,8 @@ export default function App() {
           {!visibleNotes.length && (
             <div className="empty-state">
               <FolioMark />
-              <strong>{query ? "没有匹配的笔记" : "还没有笔记"}</strong>
-              <p>{query ? "换一个词或标签试试。" : "一句话就够了，先写下此刻的想法。"}</p>
+              <strong>{query ? t("noMatchingNotes") : t("noNotes")}</strong>
+              <p>{query ? t("tryDifferentSearch") : t("emptyNotesDescription")}</p>
             </div>
           )}
         </div>

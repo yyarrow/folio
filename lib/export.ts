@@ -1,35 +1,54 @@
 import type { Note } from "./types";
+import { t } from "./i18n";
 import { displayDomain, sortNotes } from "./notes";
+
+export interface ExportLabels {
+  noComment: string;
+  source: string;
+  exportedAt: string;
+}
+
+const defaultLabels: ExportLabels = {
+  noComment: "No comment",
+  source: "Source",
+  exportedAt: "Exported",
+};
 
 function cleanFilePart(value: string): string {
   return value.replace(/[:.]/g, "-");
 }
 
-export function notesToMarkdown(notes: Note[]): string {
+export function notesToMarkdown(notes: Note[], labels: ExportLabels = defaultLabels): string {
   const sections = sortNotes(notes).map((note) => {
     const lines = [
       `## ${new Date(note.createdAt).toLocaleString()}`,
       "",
-      note.content || "_No comment_",
+      note.content || `_${labels.noComment}_`,
     ];
 
     if (note.selection) {
       lines.push("", note.selection.split("\n").map((line) => `> ${line}`).join("\n"));
     }
     if (note.url) {
-      lines.push("", `Source: [${note.title || displayDomain(note.url)}](${note.url})`);
+      lines.push("", `${labels.source}: [${note.title || displayDomain(note.url)}](${note.url})`);
     }
     if (note.tags.length) lines.push("", note.tags.map((tag) => `#${tag}`).join(" "));
     return lines.join("\n");
   });
 
-  return ["# Folio", "", `Exported ${new Date().toLocaleString()}`, "", ...sections].join("\n\n");
+  return ["# Folio", "", `${labels.exportedAt} ${new Date().toLocaleString()}`, "", ...sections].join("\n\n");
 }
 
 export function downloadExport(notes: Note[], format: "markdown" | "json"): void {
   const generatedAt = cleanFilePart(new Date().toISOString());
   const isMarkdown = format === "markdown";
-  const content = isMarkdown ? notesToMarkdown(notes) : JSON.stringify(sortNotes(notes), null, 2);
+  const content = isMarkdown
+    ? notesToMarkdown(notes, {
+        noComment: t("exportNoComment"),
+        source: t("exportSource"),
+        exportedAt: t("exportedAt"),
+      })
+    : JSON.stringify(sortNotes(notes), null, 2);
   const blob = new Blob([content], {
     type: isMarkdown ? "text/markdown;charset=utf-8" : "application/json;charset=utf-8",
   });

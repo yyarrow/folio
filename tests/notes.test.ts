@@ -43,4 +43,14 @@ describe("note helpers", () => {
     expect(markdown).toContain("[Source](https://example.com/post)");
     expect(markdown).toContain("#writing #ai");
   });
+
+  it("localizes Markdown export labels", () => {
+    const markdown = notesToMarkdown(
+      [note({ content: "", title: "来源页面", url: "https://example.com/post" })],
+      { noComment: "无备注", source: "来源", exportedAt: "导出于" },
+    );
+    expect(markdown).toContain("_无备注_");
+    expect(markdown).toContain("来源: [来源页面]");
+    expect(markdown).toContain("导出于 ");
+  });
 });
