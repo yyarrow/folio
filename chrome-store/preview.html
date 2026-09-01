@@ -4,87 +4,151 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Folio store screenshot</title>
-    <link rel="stylesheet" href="../entrypoints/sidepanel/style.css" />
     <style>
-      html, body { width: 1280px; height: 800px; overflow: hidden; }
-      body { background: #ded8cc; }
-      .store-shot { display: grid; grid-template-columns: minmax(0, 1fr) 410px; width: 1280px; height: 800px; }
-      .browser-page { position: relative; overflow: hidden; padding: 70px 92px; background: #fbfaf7; }
-      .browser-chrome { position: absolute; inset: 0 0 auto; display: flex; align-items: center; gap: 12px; height: 44px; padding: 0 18px; border-bottom: 1px solid #e4e0d8; background: #f2f0eb; }
-      .browser-dots { display: flex; gap: 6px; }
-      .browser-dots i { width: 9px; height: 9px; border-radius: 50%; background: #c9c4ba; }
-      .address { flex: 1; height: 25px; border-radius: 12px; padding: 5px 14px; background: #fff; color: #999286; font: 10px ui-sans-serif, sans-serif; }
-      .article { max-width: 650px; margin: 0 auto; }
-      .article .kicker { color: #a17b31; font: 650 11px ui-sans-serif, sans-serif; letter-spacing: .11em; text-transform: uppercase; }
-      .article h1 { max-width: 570px; margin: 15px 0 18px; color: #27231d; font: 500 44px/1.08 Georgia, serif; letter-spacing: -.025em; }
-      .article .byline { color: #9a9387; font: 11px ui-sans-serif, sans-serif; }
-      .article p { color: #625c52; font: 17px/1.72 Georgia, serif; }
+      :root {
+        color: #2d2922;
+        background: #eee8dc;
+        font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+        font-synthesis: none;
+      }
+      * { box-sizing: border-box; }
+      html, body { width: 1280px; height: 800px; margin: 0; overflow: hidden; }
+      body {
+        background:
+          radial-gradient(circle at 88% -10%, rgba(190, 155, 82, .22), transparent 31%),
+          linear-gradient(150deg, #f8f5ee, #eee8dc);
+      }
+      button, input, textarea { font: inherit; }
+      .canvas { display: grid; grid-template-rows: 42px 118px 1fr; gap: 16px; width: 100%; height: 100%; padding: 32px 48px 40px; }
+      .masthead { display: flex; align-items: center; justify-content: space-between; }
+      .brand { display: flex; align-items: center; gap: 11px; font: 600 22px/1 Georgia, "Noto Serif", serif; }
+      .mark { width: 35px; height: 35px; fill: #efe3c9; stroke: #5f4c25; stroke-width: 1.55; stroke-linecap: round; stroke-linejoin: round; }
+      .eyebrow { color: #9a7937; font-size: 11px; font-weight: 750; letter-spacing: .13em; text-transform: uppercase; }
+      .intro { display: flex; align-items: end; justify-content: space-between; gap: 44px; }
+      .intro-copy { min-width: 0; }
+      .intro h1 { margin: 0 0 8px; color: #27231d; font: 500 41px/1.08 Georgia, "Noto Serif", "Songti SC", serif; letter-spacing: -.025em; }
+      .intro p { max-width: 690px; margin: 0; color: #6a6358; font-size: 16px; line-height: 1.55; }
+      .feature-list { display: flex; flex: none; gap: 8px; margin-bottom: 7px; }
+      .feature-list span { border: 1px solid rgba(112, 87, 43, .14); border-radius: 999px; padding: 7px 10px; background: rgba(255, 253, 248, .72); color: #7a6846; font-size: 10px; font-weight: 650; white-space: nowrap; }
+
+      .product-window { display: grid; grid-template-columns: minmax(0, 1fr) 420px; min-height: 0; overflow: hidden; border: 1px solid rgba(74, 63, 43, .16); border-radius: 20px; background: #fffdf8; box-shadow: 0 22px 55px rgba(61, 49, 28, .17); }
+      .reading-pane { position: relative; min-width: 0; overflow: hidden; background: #fcfbf8; }
+      .browser-bar { display: flex; align-items: center; gap: 13px; height: 45px; padding: 0 17px; border-bottom: 1px solid #e9e4db; background: #f2efe9; }
+      .dots { display: flex; gap: 6px; }
+      .dots i { width: 8px; height: 8px; border-radius: 50%; background: #c9c3b8; }
+      .address { flex: 1; height: 26px; border-radius: 13px; padding: 6px 14px; background: #fff; color: #9b9488; font-size: 10px; }
+      .article { max-width: 610px; margin: 0 auto; padding: 48px 48px 24px; }
+      .article .kicker { color: #a17b31; font-size: 10px; font-weight: 750; letter-spacing: .11em; text-transform: uppercase; }
+      .article h2 { max-width: 520px; margin: 13px 0 11px; color: #28241e; font: 500 37px/1.12 Georgia, "Noto Serif", "Songti SC", serif; letter-spacing: -.02em; }
+      .article .byline { color: #9d9588; font-size: 10px; }
+      .article p { margin: 22px 0 0; color: #665f54; font: 15px/1.72 Georgia, "Noto Serif", "Songti SC", serif; }
       .article mark { padding: 3px 2px; background: #f0dfad; color: inherit; }
-      .sidepanel-frame { border-left: 1px solid #ccc5b8; box-shadow: -12px 0 32px rgba(55, 49, 39, .11); background: #f4f0e7; }
-      .sidepanel-frame .app-shell { height: 800px; overflow: hidden; }
-      .sidepanel-frame .composer { margin-top: 14px; }
-      .sidepanel-frame .composer textarea { min-height: 82px; resize: none; }
-      .sidepanel-frame .library { padding-bottom: 12px; }
-      .sidepanel-frame .note-actions { opacity: 1; }
-      .sidepanel-frame .note-card { padding-block: 10px 8px; }
-      .sidepanel-frame .note-copy p { font-size: 12px; }
+      .selection-tip { position: absolute; right: 28px; bottom: 25px; display: flex; align-items: center; gap: 8px; border: 1px solid rgba(112, 87, 43, .14); border-radius: 10px; padding: 8px 11px; background: rgba(255, 253, 248, .94); color: #75694f; box-shadow: 0 8px 24px rgba(61, 49, 28, .1); font-size: 10px; }
+      .selection-tip i { width: 7px; height: 7px; border-radius: 50%; background: #c89c43; box-shadow: 0 0 0 4px rgba(200, 156, 67, .13); }
+
+      .sidepanel { min-width: 0; overflow: hidden; border-left: 1px solid #d7d0c2; background: #f4f0e7; box-shadow: -12px 0 32px rgba(55, 49, 39, .1); }
+      .topbar { display: flex; align-items: center; justify-content: space-between; height: 54px; padding: 0 16px; border-bottom: 1px solid rgba(56, 51, 39, .10); background: rgba(244, 240, 231, .96); }
+      .panel-brand { display: flex; align-items: center; gap: 8px; font: 500 18px Georgia, "Noto Serif", serif; }
+      .panel-brand .mark { width: 25px; height: 25px; }
+      .status { display: flex; align-items: center; gap: 6px; color: #7b7568; font-size: 10px; }
+      .status i { width: 6px; height: 6px; border-radius: 50%; background: #71966a; box-shadow: 0 0 0 3px rgba(113, 150, 106, .12); }
+      .composer { margin: 14px 13px 11px; overflow: hidden; border: 1px solid rgba(61, 53, 38, .13); border-radius: 14px; background: #fffdf8; box-shadow: 0 8px 24px rgba(54, 46, 32, .06); }
+      .composer-label { padding: 13px 14px 4px; color: #756e5f; font-size: 10px; font-weight: 750; letter-spacing: .08em; text-transform: uppercase; }
+      .context { margin: 8px 11px 0; overflow: hidden; border: 1px solid #ece5d7; border-radius: 9px; background: #f8f4eb; }
+      .context blockquote { margin: 0; padding: 9px 11px; border-bottom: 1px solid #ece5d7; color: #696254; font: 10px/1.5 Georgia, "Noto Serif", "Songti SC", serif; }
+      .source { display: grid; grid-template-columns: 15px minmax(0, 1fr); gap: 0 5px; align-items: center; padding: 7px 9px; color: #514b40; }
+      .source b { overflow: hidden; font-size: 9px; text-overflow: ellipsis; white-space: nowrap; }
+      .source small { grid-column: 2; color: #999184; font-size: 8px; }
+      .source .arrow { grid-row: 1 / span 2; color: #9a7a39; }
+      .note-input { min-height: 72px; padding: 12px 14px; color: #302d27; font: 12px/1.55 Georgia, "Noto Serif", "Songti SC", serif; }
+      .composer-footer { display: flex; align-items: center; justify-content: space-between; min-height: 45px; padding: 7px 10px 9px 14px; border-top: 1px solid #f0eadf; }
+      .tag { border-radius: 5px; padding: 4px 6px; background: #f3ead6; color: #8a6b2d; font-size: 9px; }
+      .save { border: 0; border-radius: 8px; padding: 8px 13px; background: #2f2d28; color: #fffdf8; font-size: 10px; font-weight: 700; }
+      .library { padding: 5px 13px 18px; }
+      .library-head { display: flex; align-items: baseline; gap: 7px; padding: 4px 2px 8px; }
+      .library-head h3 { margin: 0; font: 500 16px Georgia, "Noto Serif", serif; }
+      .library-head span { color: #9b9384; font-size: 9px; }
+      .search { height: 33px; margin-bottom: 9px; border: 1px solid rgba(59, 52, 39, .10); border-radius: 9px; padding: 9px 10px; background: rgba(255, 253, 248, .66); color: #aaa294; font-size: 9px; }
+      .note-card { border: 1px solid rgba(61, 53, 38, .11); border-radius: 11px; padding: 11px 12px 9px; background: rgba(255, 253, 248, .9); }
+      .note-card p { margin: 0; color: #302d27; font: 11px/1.55 Georgia, "Noto Serif", "Songti SC", serif; }
+      .note-meta { display: flex; justify-content: space-between; margin-top: 8px; padding-top: 7px; border-top: 1px solid #f0eadf; color: #9c9487; font-size: 8px; }
+      .note-meta a { color: #91805d; }
     </style>
   </head>
   <body>
-    <div class="store-shot">
-      <section class="browser-page">
-        <div class="browser-chrome">
-          <span class="browser-dots"><i></i><i></i><i></i></span>
-          <div class="address">warmbeing.com/journal/small-ideas</div>
+    <main class="canvas">
+      <header class="masthead">
+        <div class="brand">
+          <svg aria-hidden="true" class="mark" viewBox="0 0 32 32"><path d="M8 5.5h12a4 4 0 0 1 4 4v17H11a3 3 0 0 1-3-3v-18Z"></path><path d="M11 5.5v16.8c0 1.7-3 1.7-3 0M14.5 11h5M14.5 15h5M14.5 19h3.5"></path></svg>
+          <span>Folio</span>
         </div>
-        <article class="article">
-          <span class="kicker" data-en="Creative practice" data-zh="创作练习">Creative practice</span>
-          <h1 data-en="How small ideas become meaningful work" data-zh="微小的想法，如何长成有意义的作品">How small ideas become meaningful work</h1>
-          <div class="byline" data-en="A five-minute field note · August 27" data-zh="五分钟阅读札记 · 8 月 27 日">A five-minute field note · August 27</div>
-          <p data-en="Good ideas rarely arrive as complete plans. They show up as a sentence, a question, or a detail that stays with us." data-zh="好想法很少以完整计划的样子出现。它可能只是一句话、一个问题，或某个一直留在心里的细节。">Good ideas rarely arrive as complete plans. They show up as a sentence, a question, or a detail that stays with us.</p>
-          <p><mark data-en="The useful habit is not collecting everything. It is noticing what has energy, then giving it a place to grow." data-zh="真正有用的习惯并不是收藏一切，而是留意那些仍有能量的片刻，再给它一个继续生长的地方。">The useful habit is not collecting everything. It is noticing what has energy, then giving it a place to grow.</mark></p>
-          <p data-en="A quiet capture tool protects that fragile first step. The note can stay small today and still become something larger tomorrow." data-zh="安静的记录工具保护了这脆弱的第一步。今天它可以只是一条小笔记，明天仍可能成为更大的东西。">A quiet capture tool protects that fragile first step. The note can stay small today and still become something larger tomorrow.</p>
-        </article>
+        <span class="eyebrow" data-en="A quiet place for what matters" data-zh="把值得留下的，安静地收好">A quiet place for what matters</span>
+      </header>
+
+      <section class="intro">
+        <div class="intro-copy">
+          <h1 data-en="Read here. Remember here." data-zh="读到哪里，记到哪里。">Read here. Remember here.</h1>
+          <p data-en="Keep a thought, selected text, and its source together—without leaving the page you are reading." data-zh="把一闪而过的想法，连同选中文本和来源链接一起留下，不必离开正在阅读的网页。">Keep a thought, selected text, and its source together—without leaving the page you are reading.</p>
+        </div>
+        <div class="feature-list">
+          <span data-en="Side panel" data-zh="侧边栏记录">Side panel</span>
+          <span data-en="Source preserved" data-zh="保留来源">Source preserved</span>
+          <span data-en="Local by default" data-zh="默认本地">Local by default</span>
+        </div>
       </section>
 
-      <aside class="sidepanel-frame">
-        <main class="app-shell">
+      <section class="product-window">
+        <div class="reading-pane">
+          <div class="browser-bar">
+            <span class="dots"><i></i><i></i><i></i></span>
+            <div class="address">warmbeing.com/journal/small-ideas</div>
+          </div>
+          <article class="article">
+            <span class="kicker" data-en="Creative practice" data-zh="创作练习">Creative practice</span>
+            <h2 data-en="How small ideas become meaningful work" data-zh="微小的想法，如何长成有意义的作品">How small ideas become meaningful work</h2>
+            <div class="byline" data-en="A five-minute field note · August 27" data-zh="五分钟阅读札记 · 8 月 27 日">A five-minute field note · August 27</div>
+            <p data-en="Good ideas rarely arrive as complete plans. They show up as a sentence, a question, or a detail that stays with us." data-zh="好想法很少以完整计划的样子出现。它可能只是一句话、一个问题，或某个一直留在心里的细节。">Good ideas rarely arrive as complete plans. They show up as a sentence, a question, or a detail that stays with us.</p>
+            <p><mark data-en="Notice what still has energy, then give it a place to grow." data-zh="留意那些仍有能量的片刻，再给它一个继续生长的地方。">Notice what still has energy, then give it a place to grow.</mark></p>
+          </article>
+          <div class="selection-tip"><i></i><span data-en="Selected text captured" data-zh="选中文字已带入 Folio">Selected text captured</span></div>
+        </div>
+
+        <aside class="sidepanel">
           <header class="topbar">
-            <div class="brand">
-              <svg aria-hidden="true" class="folio-mark" viewBox="0 0 32 32"><path d="M8 5.5h12a4 4 0 0 1 4 4v17H11a3 3 0 0 1-3-3v-18Z"></path><path d="M11 5.5v16.8c0 1.7-3 1.7-3 0M14.5 11h5M14.5 15h5M14.5 19h3.5"></path></svg>
+            <div class="panel-brand">
+              <svg aria-hidden="true" class="mark" viewBox="0 0 32 32"><path d="M8 5.5h12a4 4 0 0 1 4 4v17H11a3 3 0 0 1-3-3v-18Z"></path><path d="M11 5.5v16.8c0 1.7-3 1.7-3 0M14.5 11h5M14.5 15h5M14.5 19h3.5"></path></svg>
               <span>Folio</span>
             </div>
-            <div class="top-actions"><span class="local-status synced"><i></i> <span data-en="Synced" data-zh="已同步">Synced</span></span><button class="icon-button">•••</button></div>
+            <span class="status"><i></i><span data-en="Stored locally" data-zh="本地保存">Stored locally</span></span>
           </header>
 
           <section class="composer">
-            <div class="composer-heading"><span data-en="Capture this moment" data-zh="记下此刻">Capture this moment</span></div>
-            <div class="context-card">
-              <blockquote data-en="The useful habit is not collecting everything. It is noticing what has energy, then giving it a place to grow." data-zh="真正有用的习惯并不是收藏一切，而是留意那些仍有能量的片刻，再给它一个继续生长的地方。">The useful habit is not collecting everything. It is noticing what has energy, then giving it a place to grow.</blockquote>
-              <a><span class="source-dot">↗</span><span data-en="How small ideas become meaningful work" data-zh="微小的想法，如何长成有意义的作品">How small ideas become meaningful work</span><small>warmbeing.com</small></a>
+            <div class="composer-label" data-en="Capture this moment" data-zh="记下此刻">Capture this moment</div>
+            <div class="context">
+              <blockquote data-en="Notice what still has energy, then give it a place to grow." data-zh="留意那些仍有能量的片刻，再给它一个继续生长的地方。">Notice what still has energy, then give it a place to grow.</blockquote>
+              <div class="source"><span class="arrow">↗</span><b data-en="How small ideas become meaningful work" data-zh="微小的想法，如何长成有意义的作品">How small ideas become meaningful work</b><small>warmbeing.com</small></div>
             </div>
-            <textarea readonly data-en-placeholder="What is worth keeping from this moment?" data-zh-placeholder="此刻有什么值得留下？">This connects to the idea of leaving room for unfinished thoughts. #creative</textarea>
-            <div class="composer-footer"><div class="tag-preview"><span data-en="#creative" data-zh="#创作">#creative</span></div><button class="save-button"><span data-en="Save" data-zh="保存">Save</span><kbd>⌘↵</kbd></button></div>
+            <div class="note-input" data-en="Leave room for unfinished thoughts. #creative" data-zh="给尚未完成的想法留一点空间。#创作">Leave room for unfinished thoughts. #creative</div>
+            <div class="composer-footer"><span class="tag" data-en="#creative" data-zh="#创作">#creative</span><button class="save" data-en="Save" data-zh="保存">Save</button></div>
           </section>
 
           <section class="library">
-            <div class="library-heading"><h1 data-en="Recent" data-zh="最近">Recent</h1><span>3</span></div>
-            <label class="search-field"><span>⌕</span><input readonly data-en-placeholder="Search notes, pages, or tags" data-zh-placeholder="搜索笔记、网页或标签" /></label>
-            <div class="note-list">
-              <article class="note-card"><div class="note-copy"><p data-en="Leave room for unfinished thoughts. #creative" data-zh="给尚未完成的想法留一点空间。#创作">Leave room for unfinished thoughts. #creative</p></div><div class="note-tags"><span data-en="#creative" data-zh="#创作">#creative</span></div><footer><div class="note-meta"><time>10:42</time><a>warmbeing.com</a></div><div class="note-actions"><button data-en="Edit" data-zh="编辑">Edit</button><button class="danger" data-en="Delete" data-zh="删除">Delete</button></div></footer></article>
-              <article class="note-card"><div class="note-copy"><p data-en="A question worth returning to tomorrow. #journal" data-zh="一个值得明天继续想的问题。#札记">A question worth returning to tomorrow. #journal</p></div><footer><div class="note-meta"><time data-en="Aug 26, 21:08" data-zh="8月26日 21:08">Aug 26, 21:08</time><a>example.com</a></div><div class="note-actions"><button data-en="Edit" data-zh="编辑">Edit</button><button class="danger" data-en="Delete" data-zh="删除">Delete</button></div></footer></article>
-            </div>
+            <div class="library-head"><h3 data-en="Recent" data-zh="最近">Recent</h3><span>3</span></div>
+            <div class="search" data-en="⌕  Search notes, pages, or tags" data-zh="⌕  搜索笔记、网页或标签">⌕  Search notes, pages, or tags</div>
+            <article class="note-card">
+              <p data-en="A question worth returning to tomorrow. #journal" data-zh="一个值得明天继续想的问题。#札记">A question worth returning to tomorrow. #journal</p>
+              <footer class="note-meta"><time data-en="Aug 26, 21:08" data-zh="8 月 26 日 21:08">Aug 26, 21:08</time><a>example.com</a></footer>
+            </article>
           </section>
-        </main>
-      </aside>
-    </div>
+        </aside>
+      </section>
+    </main>
     <script>
       const language = new URLSearchParams(location.search).get("lang") === "zh" ? "zh" : "en";
       document.documentElement.lang = language === "zh" ? "zh-CN" : "en";
-      document.querySelectorAll("[data-en]").forEach((element) => { element.textContent = element.dataset[language]; });
-      document.querySelectorAll("[data-en-placeholder]").forEach((element) => { element.placeholder = element.dataset[`${language}Placeholder`]; });
-      const textarea = document.querySelector("textarea");
-      if (language === "zh") textarea.value = "这让我想到：要为尚未完成的念头留一点空间。#创作";
+      document.querySelectorAll("[data-en]").forEach((element) => {
+        element.textContent = element.dataset[language];
+      });
     </script>
   </body>
 </html>

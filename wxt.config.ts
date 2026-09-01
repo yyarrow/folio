@@ -12,7 +12,7 @@ export default defineConfig({
     name: "__MSG_extensionName__",
     short_name: "__MSG_extensionName__",
     description: "__MSG_extensionDescription__",
-    version: "0.4.0",
+    version: "0.4.1",
     host_permissions: ["https://folio.warmbeing.com/*"],
     permissions:
       browser === "firefox"

@@ -1,6 +1,6 @@
 {
   "extensionName": { "message": "Folio" },
-  "extensionDescription": { "message": "不打断阅读，随手保存想法、选中文本和网页。" },
+  "extensionDescription": { "message": "边读边记，不打断思路。把想法、选中文本和来源链接收进侧边栏，默认保存在本地。" },
   "openFolio": { "message": "打开 Folio" },
   "syncComplete": { "message": "同步完成" },
   "syncConnectionExpired": { "message": "设备连接已失效，请重新连接。" },

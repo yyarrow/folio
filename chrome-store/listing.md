@@ -2,9 +2,9 @@
 
 ## Package
 
-- Upload: `output/folio-0.4.0-chrome.zip`
+- Upload: `output/folio-0.4.1-chrome.zip`
 - Manifest version: 3
-- Version: 0.4.0
+- Version: 0.4.1
 - Default locale: English
 - Additional locale: Simplified Chinese (`zh_CN`)
 
@@ -16,7 +16,7 @@ Folio
 
 ### Summary
 
-Capture thoughts, selected text, and page links in a calm side panel, with local-first storage and optional cloud sync.
+Capture thoughts, selections, and pages without leaving your flow.
 
 ### Description
 
@@ -45,26 +45,27 @@ Folio
 
 ### 简短说明
 
-在 Chrome 侧边栏随手记录想法、选中文本和网页链接；默认本地保存，可选择连接云端同步。
+边读边记，不打断思路。把想法、选中文本和来源链接收进侧边栏，默认保存在本地。
 
 ### 详细说明
 
-Folio 是一个不打断阅读、随手留下想法的安静角落。
+读到一句想留下的话，或突然冒出一个念头时，不必再切到另一个应用。
 
-点击 Chrome 工具栏中的 Folio，或按 Command+Shift+Y（Windows 和 Linux 为 Ctrl+Shift+Y），即可打开侧边栏。Folio 会读取当前页面的标题、链接，以及你主动选中的文本，让此刻的灵感几秒钟内变成一条有来源的笔记。
+Folio 常驻在 Chrome 侧边栏。点击工具栏图标，或按 Command+Shift+Y（Windows 和 Linux 为 Ctrl+Shift+Y），它会带入当前网页的标题、来源链接，以及你主动选中的文本。补上一句自己的想法，一条有上下文的笔记就完成了。
 
-你可以：
+用 Folio，你可以：
 
-- 保存笔记、选中文本和来源链接
-- 使用行内 #标签 整理想法
-- 在侧边栏搜索、编辑和删除笔记
-- 将全部笔记导出为 Markdown 或 JSON
-- 默认只把笔记保存在当前设备
-- 按需连接 Folio Cloud，通过加密连接跨设备同步
+- 一边阅读，一边记录，不离开当前网页
+- 把选中文本、页面标题和来源链接一起保存
+- 用行内 #标签 整理灵感
+- 搜索、编辑和删除过去的笔记
+- 将全部内容导出为 Markdown 或 JSON
 
-Folio 不会读取完整网页，也不会在后台监控浏览行为。只有当你主动打开插件时，它才会访问当前标签页。云同步完全可选，只有在你明确连接账号后才会开始。
+笔记默认只保存在你的设备上。需要跨设备使用时，可以选择连接 Folio Cloud；云端同步不会自动开启。
 
-插件会根据浏览器语言自动显示英文或简体中文界面。
+Folio 不会读取完整网页，也不会在后台追踪浏览记录。它只会在你主动打开侧边栏时访问当前标签页，并且只读取你主动选中的文字。
+
+界面会自动跟随 Chrome，支持英文和简体中文。
 
 ## Privacy form
 
