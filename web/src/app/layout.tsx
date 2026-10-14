@@ -1,4 +1,7 @@
 import type { Metadata, Viewport } from "next";
+import "@fontsource-variable/inter/wght.css";
+import "@fontsource-variable/newsreader/opsz.css";
+import "./tokens.css";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -24,7 +27,10 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",
-  themeColor: "#f4f0e7",
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#f4f0e7" },
+    { media: "(prefers-color-scheme: dark)", color: "#1b1915" },
+  ],
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
