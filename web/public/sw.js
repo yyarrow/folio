@@ -1,4 +1,4 @@
-const CACHE_NAME = "folio-shell-v3";
+const CACHE_NAME = "folio-shell-v4";
 const DB_NAME = "folio-mobile";
 
 function openDatabase() {

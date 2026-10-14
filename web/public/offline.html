@@ -3,13 +3,19 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <meta name="theme-color" content="#f4f0e7" />
+    <meta name="theme-color" content="#f4f0e7" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#1b1915" media="(prefers-color-scheme: dark)" />
     <title>Folio · 离线</title>
     <style>
+      :root { color-scheme: light dark; }
       body { display:grid; min-height:100vh; place-items:center; margin:0; background:#f4f0e7; color:#342f26; font-family:system-ui,sans-serif; }
       main { max-width:280px; padding:32px; text-align:center; }
       h1 { font-family:Georgia,serif; font-weight:500; }
-      p { color:#81796b; line-height:1.65; }
+      p { color:#81796b; line-height:1.65; text-wrap:pretty; }
+      @media (prefers-color-scheme: dark) {
+        body { background:#1b1915; color:#ece6da; }
+        p { color:#9d9586; }
+      }
     </style>
   </head>
   <body>
