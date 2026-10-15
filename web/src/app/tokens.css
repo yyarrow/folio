@@ -168,6 +168,8 @@ html {
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  /* Newsreader defaults to tabular figures, which look loose in running text. */
+  font-variant-numeric: proportional-nums;
 }
 
 h1, h2, h3, strong { text-wrap: balance; }
