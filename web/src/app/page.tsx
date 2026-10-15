@@ -24,9 +24,12 @@ import {
   normalizeSharedContext,
 } from "@/lib/notes";
 import type { Note, PageContext, SyncState } from "@/lib/types";
+import NoteEditor from "./note-editor";
 
 type SessionState = "checking" | "signed-in" | "signed-out" | "offline" | "storage-error";
 type SaveState = "idle" | "saving" | "saved" | "queued" | "local";
+type EditorTarget = { kind: "new" } | { kind: "note"; id: string };
+type DraftState = "saved" | "pending" | "empty";
 type CurrentUser = { id: string; email: string };
 
 const EXTENSION_DOWNLOAD_URL = "https://github.com/yyarrow/folio/releases/latest/download/folio-extension.zip";
@@ -49,7 +52,9 @@ export default function Home() {
   const [content, setContent] = useState("");
   const [context, setContext] = useState<PageContext>({});
   const [query, setQuery] = useState("");
-  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editor, setEditor] = useState<EditorTarget | null>(null);
+  const [noteDraft, setNoteDraft] = useState("");
+  const [draftState, setDraftState] = useState<DraftState>("saved");
   const [session, setSession] = useState<SessionState>("checking");
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
   const [workspaceScope, setWorkspaceScope] = useState(LOCAL_SCOPE);
@@ -66,6 +71,7 @@ export default function Home() {
   const [message, setMessage] = useState("");
   const [installPrompt, setInstallPrompt] = useState<InstallPromptEvent | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const closeEditorRef = useRef<(save: boolean) => void>(() => undefined);
 
   const syncFromCloud = useCallback(async (scope: string) => {
     const response = await fetch("/api/sync", {
@@ -241,36 +247,36 @@ export default function Home() {
     }
   }
 
-  function resetComposer() {
-    setContent("");
-    setContext({});
-    setEditingId(null);
-    setSaveState("idle");
-    textareaRef.current?.focus();
+  async function persistNote(note: Note, isNew: boolean) {
+    await queueNote(workspaceScope, note);
+    setNotes((current) => sortNotes([...current.filter((item) => item.id !== note.id), note]));
+    if (isNew && workspaceScope === LOCAL_SCOPE) setLocalNoteCount((count) => count + 1);
+  }
+
+  function syncInBackground() {
+    if (session === "signed-in" && navigator.onLine) {
+      void syncFromCloud(workspaceScope).catch(() => setSession("offline"));
+    }
   }
 
   async function handleSave() {
     if (!canSave || saveState === "saving") return;
     setSaveState("saving");
-    const existing = editingId ? notes.find((note) => note.id === editingId) : undefined;
     const now = new Date().toISOString();
     const note: Note = {
-      id: existing?.id ?? crypto.randomUUID(),
+      id: crypto.randomUUID(),
       content: content.trim(),
       title: context.title,
       url: context.url,
       selection: context.selection,
       tags,
-      createdAt: existing?.createdAt ?? now,
+      createdAt: now,
       updatedAt: now,
     };
 
-    await queueNote(workspaceScope, note);
-    setNotes((current) => sortNotes([...current.filter((item) => item.id !== note.id), note]));
-    if (workspaceScope === LOCAL_SCOPE) setLocalNoteCount((count) => count + (existing ? 0 : 1));
+    await persistNote(note, true);
     setContent("");
     setContext({});
-    setEditingId(null);
 
     if (session === "signed-in" && navigator.onLine) {
       try {
@@ -288,21 +294,77 @@ export default function Home() {
     window.setTimeout(() => setSaveState("idle"), 900);
   }
 
-  function handleEdit(note: Note) {
-    setEditingId(note.id);
-    setContent(note.content);
-    setContext({ title: note.title, url: note.url, selection: note.selection });
-    setSaveState("idle");
-    window.scrollTo({ top: 0, behavior: "smooth" });
-    window.setTimeout(() => textareaRef.current?.focus(), 250);
+  const editingNote = editor?.kind === "note" ? notes.find((note) => note.id === editor.id) : undefined;
+
+  function openEditor(target: EditorTarget) {
+    if (target.kind === "note") {
+      const note = notes.find((item) => item.id === target.id);
+      if (!note) return;
+      setNoteDraft(note.content);
+      setDraftState("saved");
+    }
+    setEditor(target);
+    // Let the Android back gesture close the editor instead of leaving the app.
+    window.history.pushState({ folioEditor: true }, "");
   }
+
+  async function saveNoteDraft(): Promise<boolean> {
+    if (!editingNote) return false;
+    const nextContent = noteDraft.trim();
+    if (nextContent === editingNote.content) return false;
+    if (!nextContent && !editingNote.selection) {
+      setDraftState("empty");
+      return false;
+    }
+    await persistNote({
+      ...editingNote,
+      content: nextContent,
+      tags: extractTags(nextContent),
+      updatedAt: new Date().toISOString(),
+    }, false);
+    setDraftState("saved");
+    return true;
+  }
+
+  closeEditorRef.current = (save: boolean) => {
+    if (save && editor?.kind === "note") {
+      void saveNoteDraft().then((changed) => { if (changed) syncInBackground(); });
+    }
+    setEditor(null);
+    window.setTimeout(() => { if (!editor || editor.kind === "new") textareaRef.current?.focus(); }, 0);
+  };
+
+  function closeEditor(save = true) {
+    if (window.history.state?.folioEditor) {
+      if (!save) closeEditorRef.current(false);
+      window.history.back();
+    } else {
+      closeEditorRef.current(save);
+    }
+  }
+
+  useEffect(() => {
+    const onPopState = () => closeEditorRef.current(true);
+    window.addEventListener("popstate", onPopState);
+    return () => window.removeEventListener("popstate", onPopState);
+  }, []);
+
+  useEffect(() => {
+    if (!editingNote) return;
+    if (noteDraft.trim() === editingNote.content) return;
+    setDraftState("pending");
+    const timer = window.setTimeout(() => void saveNoteDraft(), 700);
+    return () => window.clearTimeout(timer);
+    // saveNoteDraft reads the same state this effect depends on.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [noteDraft, editingNote]);
 
   async function handleDelete(note: Note) {
     if (!window.confirm("删除这条笔记？")) return;
     await queueDeletion(workspaceScope, note.id);
     setNotes((current) => current.filter((item) => item.id !== note.id));
     if (workspaceScope === LOCAL_SCOPE) setLocalNoteCount((count) => Math.max(0, count - 1));
-    if (editingId === note.id) await resetComposer();
+    if (editor?.kind === "note" && editor.id === note.id) closeEditor(false);
     if (session === "signed-in" && navigator.onLine) {
       try {
         await syncFromCloud(workspaceScope);
@@ -566,7 +628,7 @@ export default function Home() {
               {!tags.length && <span className="hint">可用 #标签</span>}
             </div>
             <div className="composer-actions">
-              {editingId && <button className="cancel-button" onClick={resetComposer}>取消</button>}
+              <button className="expand-button" onClick={() => openEditor({ kind: "new" })} aria-label="全屏编辑" title="全屏编辑">⤢</button>
               <button className={`save-button ${saveState}`} disabled={!canSave || saveState === "saving"} onClick={() => void handleSave()}>
                 {saveState === "saving" ? "保存中…" : saveState === "saved" ? "已保存 ✓" : saveState === "queued" ? "待同步 ✓" : saveState === "local" ? "已存本机 ✓" : "保存"}
               </button>
@@ -590,9 +652,25 @@ export default function Home() {
           <div className="note-list">
             {visibleNotes.map((note) => (
               <article className="note-card" key={note.id}>
-                {note.content && <p>{note.content}</p>}
-                {note.selection && <blockquote>{note.selection}</blockquote>}
-                {note.tags.length > 0 && <div className="note-tags">{note.tags.map((tag) => <span key={tag}>#{tag}</span>)}</div>}
+                <div
+                  className="note-body"
+                  role="button"
+                  tabIndex={0}
+                  aria-label="打开并编辑笔记"
+                  onClick={() => {
+                    if (!window.getSelection()?.toString()) openEditor({ kind: "note", id: note.id });
+                  }}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" || event.key === " ") {
+                      event.preventDefault();
+                      openEditor({ kind: "note", id: note.id });
+                    }
+                  }}
+                >
+                  {note.content && <p>{note.content}</p>}
+                  {note.selection && <blockquote>{note.selection}</blockquote>}
+                  {note.tags.length > 0 && <div className="note-tags">{note.tags.map((tag) => <span key={tag}>#{tag}</span>)}</div>}
+                </div>
                 <footer>
                   <div className="note-meta">
                     <time>{formatNoteDate(note.updatedAt)}</time>
@@ -603,7 +681,7 @@ export default function Home() {
                     )}
                   </div>
                   <div className="note-actions">
-                    <button onClick={() => handleEdit(note)}>编辑</button>
+                    <button onClick={() => openEditor({ kind: "note", id: note.id })}>编辑</button>
                     <button onClick={() => void handleDelete(note)}>删除</button>
                   </div>
                 </footer>
@@ -619,6 +697,31 @@ export default function Home() {
           </div>
         </section>
       </div>
+      {editor?.kind === "new" && (
+        <NoteEditor
+          heading="新建笔记"
+          value={content}
+          context={context}
+          placeholder={context.selection ? "为这段内容添加笔记…" : "写下想法…"}
+          onChange={(value) => { setContent(value); setSaveState("idle"); }}
+          onClose={() => closeEditor()}
+          onSubmit={() => { closeEditor(); void handleSave(); }}
+          submitLabel="保存"
+          submitDisabled={!canSave || saveState === "saving"}
+        />
+      )}
+      {editingNote && (
+        <NoteEditor
+          heading={formatNoteDate(editingNote.createdAt)}
+          status={draftState === "pending" ? "保存中…" : draftState === "empty" ? "内容为空，未保存" : "已自动保存"}
+          value={noteDraft}
+          context={editingNote}
+          placeholder="写下想法…"
+          onChange={setNoteDraft}
+          onClose={() => closeEditor()}
+          onDelete={() => void handleDelete(editingNote)}
+        />
+      )}
     </main>
   );
 }
