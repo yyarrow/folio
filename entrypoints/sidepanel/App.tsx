@@ -119,10 +119,14 @@ export default function App() {
       if (draft) {
         // Migrate drafts saved by the old "edit in composer" flow: reopen that
         // note in the fullscreen editor (it autosaves) and clear the composer.
-        if (draft.editingId && loadedNotes.some((note) => note.id === draft.editingId)) {
+        const legacyNote = draft.editingId ? loadedNotes.find((note) => note.id === draft.editingId) : undefined;
+        if (legacyNote && draft.content.trim() === legacyNote.content) {
+          await clearDraft();
+          await refreshContext();
+        } else if (legacyNote) {
           setNoteDraft(draft.content);
           setDraftState("pending");
-          setEditor({ kind: "note", id: draft.editingId });
+          setEditor({ kind: "note", id: legacyNote.id });
           openedEditor = true;
           legacyDraftRef.current = true;
           await refreshContext();
@@ -254,6 +258,15 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [noteDraft, editingNote]);
 
+  // Closing the side panel skips the debounce, so flush as soon as it is hidden.
+  const flushNoteDraftRef = useRef(saveNoteDraft);
+  flushNoteDraftRef.current = saveNoteDraft;
+  useEffect(() => {
+    const onHidden = () => { if (document.visibilityState === "hidden") void flushNoteDraftRef.current(); };
+    document.addEventListener("visibilitychange", onHidden);
+    return () => document.removeEventListener("visibilitychange", onHidden);
+  }, []);
+
   async function handleDelete(note: Note) {
     if (!window.confirm(t("deleteConfirm"))) return;
     await removeNote(note.id);
@@ -383,11 +396,11 @@ export default function App() {
             {!tags.length && <span className="hint">{t("tagHint")}</span>}
           </div>
           <div className="composer-actions">
-          <button className="expand-button" onClick={() => setEditor({ kind: "new" })} aria-label={t("fullscreenEdit")} title={t("fullscreenEdit")}>⤢</button>
-          <button className={`save-button ${status}`} disabled={!canSave || status === "saving"} onClick={() => void handleSave()}>
-            {status === "saving" ? t("saving") : status === "saved" ? t("saved") : t("save")}
-            {status === "idle" && <kbd>⌘↵</kbd>}
-          </button>
+            <button className="expand-button" onClick={() => setEditor({ kind: "new" })} aria-label={t("fullscreenEdit")} title={t("fullscreenEdit")}>⤢</button>
+            <button className={`save-button ${status}`} disabled={!canSave || status === "saving"} onClick={() => void handleSave()}>
+              {status === "saving" ? t("saving") : status === "saved" ? t("saved") : t("save")}
+              {status === "idle" && <kbd>⌘↵</kbd>}
+            </button>
           </div>
         </div>
       </section>

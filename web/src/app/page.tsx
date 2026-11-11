@@ -359,6 +359,15 @@ export default function Home() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [noteDraft, editingNote]);
 
+  // Backgrounding the app skips the debounce, so flush as soon as it is hidden.
+  const flushNoteDraftRef = useRef(saveNoteDraft);
+  flushNoteDraftRef.current = saveNoteDraft;
+  useEffect(() => {
+    const onHidden = () => { if (document.visibilityState === "hidden") void flushNoteDraftRef.current(); };
+    document.addEventListener("visibilitychange", onHidden);
+    return () => document.removeEventListener("visibilitychange", onHidden);
+  }, []);
+
   async function handleDelete(note: Note) {
     if (!window.confirm("删除这条笔记？")) return;
     await queueDeletion(workspaceScope, note.id);
