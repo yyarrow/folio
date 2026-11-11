@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useI18n } from "./i18n-provider";
 
 interface DeviceCodeCardProps {
   code: string;
@@ -17,6 +18,7 @@ function formatRemaining(ms: number): string {
 }
 
 export default function DeviceCodeCard({ code, expiresAt, refreshing, onRefresh }: DeviceCodeCardProps) {
+  const { t } = useI18n();
   const [now, setNow] = useState(() => Date.now());
   const [copied, setCopied] = useState(false);
   const remaining = new Date(expiresAt).getTime() - now;
@@ -46,9 +48,9 @@ export default function DeviceCodeCard({ code, expiresAt, refreshing, onRefresh 
   return (
     <div className={`device-code${expired ? " expired" : ""}`} role="status">
       <strong>{code}</strong>
-      <span>{expired ? "已过期，请重新生成" : `在插件中输入 · ${formatRemaining(remaining)} 后过期`}</span>
+      <span>{expired ? t("deviceCodeExpired") : t("deviceCodeEnter", { time: formatRemaining(remaining) })}</span>
       <div className="device-code-actions">
-        <button onClick={() => void handleCopy()} disabled={expired} aria-label="复制连接码" title="复制">
+        <button onClick={() => void handleCopy()} disabled={expired} aria-label={t("copyConnectionCode")} title={t("copy")}>
           {copied ? (
             <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4.5 10.5l3.5 3.5 7.5-8" /></svg>
           ) : (
@@ -58,7 +60,7 @@ export default function DeviceCodeCard({ code, expiresAt, refreshing, onRefresh 
             </svg>
           )}
         </button>
-        <button onClick={onRefresh} disabled={refreshing} aria-label="重新生成连接码" title="重新生成">
+        <button onClick={onRefresh} disabled={refreshing} aria-label={t("regenerateConnectionCode")} title={t("regenerate")}>
           <svg viewBox="0 0 20 20" aria-hidden="true" className={refreshing ? "spinning" : undefined}>
             <path d="M15.5 9.5A5.5 5.5 0 1 1 13.9 5.6" />
             <path d="M14.5 2.5v3.5H11" />

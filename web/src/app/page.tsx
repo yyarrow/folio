@@ -27,6 +27,7 @@ import type { Note, PageContext, SyncState } from "@/lib/types";
 import { renderMarkdown } from "@/lib/markdown";
 import DeviceCodeCard from "./device-code-card";
 import NoteEditor from "./note-editor";
+import { useI18n } from "./i18n-provider";
 
 type SessionState = "checking" | "signed-in" | "signed-out" | "offline" | "storage-error";
 type SaveState = "idle" | "saving" | "saved" | "queued" | "local";
@@ -51,6 +52,10 @@ function sortNotes(notes: Note[]): Note[] {
 }
 
 export default function Home() {
+  const { t, lang, setLang } = useI18n();
+  const tRef = useRef(t);
+  tRef.current = t;
+  const locale = lang === "zh" ? "zh-CN" : "en";
   const [notes, setNotes] = useState<Note[]>([]);
   const [content, setContent] = useState("");
   const [context, setContext] = useState<PageContext>({});
@@ -116,7 +121,7 @@ export default function Home() {
       await syncFromCloud(scope);
     } catch {
       setSession("offline");
-      setMessage("当前离线，笔记将保存在本机，联网后继续同步。");
+      setMessage(tRef.current("offlineSyncLater"));
     }
     if (offerLocalMerge && localCount > 0) setShowMergePrompt(true);
   }, [openWorkspace, syncFromCloud]);
@@ -148,7 +153,7 @@ export default function Home() {
       const search = new URLSearchParams(window.location.search);
       const authResult = search.get("auth");
       if (authResult === "expired") {
-        setMessage("登录链接无效或已过期，请重新获取。");
+        setMessage(tRef.current("loginLinkExpired"));
       }
       const shared = await consumeSharedContext();
       if (shared) {
@@ -174,7 +179,7 @@ export default function Home() {
         setCurrentUser(cached.user ?? null);
         setLocalNoteCount(await countLocalNotes());
         setSession("offline");
-        setMessage("当前离线，笔记将保存在本机。");
+        setMessage(tRef.current("offlineLocalOnly"));
       } finally {
         if (authResult) {
           search.delete("auth");
@@ -184,7 +189,7 @@ export default function Home() {
       }
     })().catch(() => {
       setSession("storage-error");
-      setMessage("本地存储暂时无法打开。请关闭其他 Folio 页面后重试。");
+      setMessage(tRef.current("storageUnavailable"));
     });
 
     const onOnline = () => {
@@ -252,7 +257,7 @@ export default function Home() {
       });
       const data = await response.json().catch(() => ({})) as { error?: string };
       if (!response.ok) {
-        setMessage(data.error ?? "暂时无法提交申请。");
+        setMessage(data.error ?? t("waitlistFailed"));
         return;
       }
       setWaitlistDone(true);
@@ -274,11 +279,11 @@ export default function Home() {
       });
       const data = await response.json().catch(() => ({})) as { error?: string; previewUrl?: string };
       if (!response.ok) {
-        setMessage(data.error ?? "暂时无法发送登录邮件。");
+        setMessage(data.error ?? t("loginEmailFailed"));
         return;
       }
       setInviteCode("");
-      setMessage("登录链接已发送，请查收邮件。");
+      setMessage(t("loginLinkSent"));
       if (data.previewUrl) window.location.href = data.previewUrl;
     } finally {
       setSendingLogin(false);
@@ -328,7 +333,7 @@ export default function Home() {
     }
     const localOnly = workspaceScope === LOCAL_SCOPE;
     setSaveState(localOnly ? "local" : "queued");
-    setMessage(localOnly ? "已保存到这台设备。连接 Folio Cloud 后可跨设备同步。" : "已保存到本机，恢复网络后同步。");
+    setMessage(localOnly ? t("savedLocalDevice") : t("savedQueued"));
     window.setTimeout(() => setSaveState("idle"), 900);
   }
 
@@ -503,7 +508,7 @@ export default function Home() {
 
   async function handleMergeLocalNotes() {
     if (!currentUser || mergingLocal || !navigator.onLine) {
-      setMessage("需要联网后才能合并到 Folio Cloud。");
+      setMessage(t("mergeNeedsNetwork"));
       return;
     }
     setMergingLocal(true);
@@ -516,9 +521,9 @@ export default function Home() {
       await clearLocalData(LOCAL_SCOPE);
       setLocalNoteCount(0);
       setShowMergePrompt(false);
-      setMessage(`已将 ${result.count} 条本地笔记安全合并到 Folio Cloud。`);
+      setMessage(t("mergeDone", { count: result.count }));
     } catch {
-      setMessage("暂时无法完成合并，本地笔记仍安全保留在这台设备。");
+      setMessage(t("mergeFailed"));
     } finally {
       setMergingLocal(false);
     }
@@ -531,7 +536,7 @@ export default function Home() {
       const response = await fetch("/api/auth/device-code", { method: "POST" });
       const data = await response.json().catch(() => ({})) as { code?: string; expiresAt?: string; error?: string };
       if (!response.ok || !data.code) {
-        setMessage(data.error ?? "暂时无法生成连接码。");
+        setMessage(data.error ?? t("deviceCodeFailed"));
         return;
       }
       setDeviceCode(data.code);
@@ -552,15 +557,15 @@ export default function Home() {
   }
 
   async function handleDeleteAccount() {
-    if (!window.confirm("永久删除账号和全部云端笔记？此操作无法撤销。")) return;
-    if (window.prompt("请输入 DELETE 确认删除") !== "DELETE") return;
+    if (!window.confirm(t("deleteAccountConfirm"))) return;
+    if (window.prompt(t("deleteAccountPrompt")) !== "DELETE") return;
     const response = await fetch("/api/account", {
       method: "DELETE",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ confirmation: "DELETE" }),
     });
     if (!response.ok) {
-      setMessage("暂时无法删除账号。");
+      setMessage(t("deleteAccountFailed"));
       return;
     }
     const deletedScope = workspaceScope;
@@ -593,9 +598,9 @@ export default function Home() {
     return (
       <main className="storage-error-screen">
         <FolioMark />
-        <h1>本地笔记没有丢失</h1>
+        <h1>{t("storageErrorTitle")}</h1>
         <p>{message}</p>
-        <button onClick={() => window.location.reload()}>重新打开 Folio</button>
+        <button onClick={() => window.location.reload()}>{t("reopenFolio")}</button>
       </main>
     );
   }
@@ -606,15 +611,15 @@ export default function Home() {
         <div className="brand"><FolioMark /><span>Folio</span></div>
         <div className="top-actions">
           {installPrompt && (
-            <button className="install-button" onClick={() => void handleInstall()}>安装</button>
+            <button className="install-button" onClick={() => void handleInstall()}>{t("install")}</button>
           )}
           {currentUser && (
             <button
               className="code-button"
               onClick={() => { setShowAccountMenu(true); void handleCreateDeviceCode(); }}
               disabled={creatingDeviceCode || session === "offline"}
-              aria-label="生成连接码"
-              title="生成插件连接码"
+              aria-label={t("generateConnectionCode")}
+              title={t("generateExtensionCodeTitle")}
             >
               <svg viewBox="0 0 20 20" aria-hidden="true">
                 <path d="M8.5 11.5a3.5 3.5 0 0 0 5 0l2.5-2.5a3.5 3.5 0 0 0-5-5l-1 1" />
@@ -623,16 +628,16 @@ export default function Home() {
             </button>
           )}
           <span className={`sync-status ${session}`}>
-            <i /> {session === "signed-in" ? "已同步" : session === "signed-out" ? "仅本机" : "离线"}
+            <i /> {session === "signed-in" ? t("statusSynced") : session === "signed-out" ? t("statusLocalOnly") : t("statusOffline")}
           </span>
-          <button className="more-button" onClick={() => setShowAccountMenu((open) => !open)} aria-label="账号设置">•••</button>
+          <button className="more-button" onClick={() => setShowAccountMenu((open) => !open)} aria-label={t("accountSettings")}>•••</button>
           {showAccountMenu && (
             <div className="account-menu">
               {currentUser ? (
                 <>
                   <div className="account-email">{currentUser.email}</div>
                   <button onClick={() => void handleCreateDeviceCode()} disabled={creatingDeviceCode || session === "offline"}>
-                    {creatingDeviceCode ? "生成中…" : "生成连接码"}
+                    {creatingDeviceCode ? t("generating") : t("generateConnectionCode")}
                   </button>
                   {deviceCode && (
                     <DeviceCodeCard
@@ -644,23 +649,23 @@ export default function Home() {
                   )}
                   {localNoteCount > 0 && (
                     <button onClick={() => void handleMergeLocalNotes()} disabled={mergingLocal || session === "offline"}>
-                      {mergingLocal ? "合并中…" : `合并本地笔记（${localNoteCount}）`}
+                      {mergingLocal ? t("merging") : t("mergeLocalNotes", { count: localNoteCount })}
                     </button>
                   )}
                 </>
               ) : (
                 <>
                   {connectIntent && (
-                    <p className="connect-hint" role="status">登录 Folio Cloud 后，会自动生成浏览器插件的连接码。</p>
+                    <p className="connect-hint" role="status">{t("connectHint")}</p>
                   )}
                   <form className="account-login" onSubmit={handleLogin}>
-                    <label htmlFor="email">连接 Folio Cloud</label>
+                    <label htmlFor="email">{t("connectFolioCloud")}</label>
                     <input
                       id="email"
                       type="email"
                       value={email}
                       onChange={(event) => setEmail(event.target.value)}
-                      placeholder="邮箱"
+                      placeholder={t("emailPlaceholder")}
                       autoComplete="email"
                     />
                     <input
@@ -670,44 +675,45 @@ export default function Home() {
                       spellCheck={false}
                       value={inviteCode}
                       onChange={(event) => setInviteCode(event.target.value)}
-                      placeholder="邀请码 · 已有账号可留空"
+                      placeholder={t("invitePlaceholder")}
                       autoComplete="one-time-code"
                     />
-                    <button disabled={!email.trim() || sendingLogin}>{sendingLogin ? "发送中…" : "发送登录链接"}</button>
+                    <button disabled={!email.trim() || sendingLogin}>{sendingLogin ? t("sending") : t("sendLoginLink")}</button>
                     {!showWaitlist && (
                       <button type="button" className="waitlist-toggle" onClick={() => setShowWaitlist(true)}>
-                        没有邀请码？申请加入等候名单
+                        {t("waitlistToggle")}
                       </button>
                     )}
                   </form>
                   {showWaitlist && (waitlistDone ? (
-                    <div className="waitlist-done" role="status">已收到申请，邀请码会发到你的邮箱。</div>
+                    <div className="waitlist-done" role="status">{t("waitlistReceived")}</div>
                   ) : (
                     <form className="waitlist-form" onSubmit={handleWaitlist}>
                       <input
                         type="email"
                         value={email}
                         onChange={(event) => setEmail(event.target.value)}
-                        placeholder="邮箱"
+                        placeholder={t("emailPlaceholder")}
                         autoComplete="email"
-                        aria-label="邮箱"
+                        aria-label={t("emailPlaceholder")}
                       />
                       <textarea
                         value={waitlistNote}
                         onChange={(event) => setWaitlistNote(event.target.value)}
-                        placeholder="想用 Folio 记录什么？（可选）"
+                        placeholder={t("waitlistNotePlaceholder")}
                         maxLength={280}
                       />
-                      <button disabled={!email.trim() || submittingWaitlist}>{submittingWaitlist ? "提交中…" : "提交申请"}</button>
+                      <button disabled={!email.trim() || submittingWaitlist}>{submittingWaitlist ? t("submitting") : t("submitRequest")}</button>
                     </form>
                   ))}
                 </>
               )}
-              <a href={CHROME_STORE_URL} target="_blank" rel="noreferrer">安装 Chrome 插件 ↗</a>
-              <button onClick={handleExport}>导出 JSON</button>
-              <a href="/privacy">隐私与数据</a>
-              {currentUser && <button onClick={() => void handleLogout()}>退出登录</button>}
-              {currentUser && <button className="danger" onClick={() => void handleDeleteAccount()}>删除账号</button>}
+              <a href={CHROME_STORE_URL} target="_blank" rel="noreferrer">{t("installChromeExtension")}</a>
+              <button onClick={handleExport}>{t("exportJson")}</button>
+              <button onClick={() => setLang(lang === "zh" ? "en" : "zh")}>{t("languageSwitch")}</button>
+              <a href="/privacy">{t("privacyAndData")}</a>
+              {currentUser && <button onClick={() => void handleLogout()}>{t("menuSignOut")}</button>}
+              {currentUser && <button className="danger" onClick={() => void handleDeleteAccount()}>{t("menuDeleteAccount")}</button>}
             </div>
           )}
         </div>
@@ -716,35 +722,35 @@ export default function Home() {
       <div className="content-column">
         <section className="intro">
           <p>Every idea matters.</p>
-          <h1>{session === "signed-out" ? "记下此刻" : "新建笔记"}</h1>
+          <h1>{session === "signed-out" ? t("introNewNoteSignedOut") : t("introNewNote")}</h1>
         </section>
 
         {session === "signed-out" && (
           <aside className="local-notice">
             <div>
-              <strong>仅保存在这台设备</strong>
-              <span>清除浏览器数据或卸载应用可能导致笔记丢失。</span>
+              <strong>{t("localNoticeTitle")}</strong>
+              <span>{t("localNoticeBody")}</span>
             </div>
-            <button onClick={() => setShowAccountMenu(true)}>连接云端</button>
+            <button onClick={() => setShowAccountMenu(true)}>{t("connectCloud")}</button>
           </aside>
         )}
 
         {showMergePrompt && localNoteCount > 0 && currentUser && (
-          <aside className="merge-notice" role="dialog" aria-label="合并本地笔记">
+          <aside className="merge-notice" role="dialog" aria-label={t("mergeDialogLabel")}>
             <div>
-              <strong>发现 {localNoteCount} 条本地笔记</strong>
-              <span>确认后才会复制到 {currentUser.email}，同步成功前不会删除本地数据。</span>
+              <strong>{t("mergeFoundTitle", { count: localNoteCount })}</strong>
+              <span>{t("mergeFoundBody", { email: currentUser.email })}</span>
             </div>
             <div className="merge-actions">
-              <button className="merge-later" onClick={() => setShowMergePrompt(false)}>暂不合并</button>
+              <button className="merge-later" onClick={() => setShowMergePrompt(false)}>{t("mergeLater")}</button>
               <button onClick={() => void handleMergeLocalNotes()} disabled={mergingLocal}>
-                {mergingLocal ? "合并中…" : "合并到云端"}
+                {mergingLocal ? t("merging") : t("mergeToCloud")}
               </button>
             </div>
           </aside>
         )}
 
-        <section className="composer" aria-label="新笔记">
+        <section className="composer" aria-label={t("composerLabel")}>
           {(context.url || context.selection || context.title) && (
             <div className="context-card">
               {context.selection && <blockquote>{context.selection}</blockquote>}
@@ -759,7 +765,7 @@ export default function Home() {
                   <div className="context-title">{context.title}</div>
                 )
               )}
-              <button className="clear-context" onClick={() => setContext({})} aria-label="移除来源">×</button>
+              <button className="clear-context" onClick={() => setContext({})} aria-label={t("removeSource")}>×</button>
             </div>
           )}
 
@@ -767,19 +773,19 @@ export default function Home() {
             ref={textareaRef}
             value={content}
             onChange={(event) => { setContent(event.target.value); setSaveState("idle"); }}
-            placeholder={context.selection ? "为这段内容添加笔记…" : "写下想法…"}
+            placeholder={context.selection ? t("composerPlaceholderSelection") : t("composerPlaceholder")}
             rows={7}
           />
 
           <footer className="composer-footer">
             <div className="tag-preview">
               {tags.slice(0, 3).map((tag) => <span key={tag}>#{tag}</span>)}
-              {!tags.length && <span className="hint">可用 #标签</span>}
+              {!tags.length && <span className="hint">{t("tagHint")}</span>}
             </div>
             <div className="composer-actions">
-              <button className="expand-button" onClick={() => openEditor({ kind: "new" })} aria-label="全屏编辑" title="全屏编辑">⤢</button>
+              <button className="expand-button" onClick={() => openEditor({ kind: "new" })} aria-label={t("fullscreenEdit")} title={t("fullscreenEdit")}>⤢</button>
               <button className={`save-button ${saveState}`} disabled={!canSave || saveState === "saving"} onClick={() => void handleSave()}>
-                {saveState === "saving" ? "保存中…" : saveState === "saved" ? "已保存 ✓" : saveState === "queued" ? "待同步 ✓" : saveState === "local" ? "已存本机 ✓" : "保存"}
+                {saveState === "saving" ? t("saving") : saveState === "saved" ? t("savedCheck") : saveState === "queued" ? t("pendingSyncCheck") : saveState === "local" ? t("savedLocalCheck") : t("save")}
               </button>
             </div>
           </footer>
@@ -787,18 +793,18 @@ export default function Home() {
 
         {message && <div className="notice" role="status">{message}<button onClick={() => setMessage("")}>×</button></div>}
 
-        <section className="library" aria-label="最近笔记">
+        <section className="library" aria-label={t("recentNotes")}>
           <div className="library-heading">
-            <h2>最近</h2>
+            <h2>{t("recent")}</h2>
             <span>{notes.length - (pendingDelete ? 1 : 0)}</span>
           </div>
           <label className="search-field">
             <span>⌕</span>
-            <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜索笔记、网页或标签" />
-            {query && <button onClick={() => setQuery("")} aria-label="清空搜索">×</button>}
+            <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder={t("searchPlaceholder")} />
+            {query && <button onClick={() => setQuery("")} aria-label={t("clearSearch")}>×</button>}
           </label>
           {tagFilter && (
-            <button type="button" className="tag-filter" onClick={() => setTagFilter(null)} aria-label="清除标签筛选">
+            <button type="button" className="tag-filter" onClick={() => setTagFilter(null)} aria-label={t("clearTagFilter")}>
               #{tagFilter} <span aria-hidden="true">×</span>
             </button>
           )}
@@ -810,7 +816,7 @@ export default function Home() {
                   className="note-body"
                   role="button"
                   tabIndex={0}
-                  aria-label="打开并编辑笔记"
+                  aria-label={t("openAndEditNote")}
                   onClick={(event) => {
                     if ((event.target as HTMLElement).closest("a, button")) return;
                     if (!window.getSelection()?.toString()) openEditor({ kind: "note", id: note.id });
@@ -830,7 +836,7 @@ export default function Home() {
                 </div>
                 <footer>
                   <div className="note-meta">
-                    <time>{formatNoteDate(note.updatedAt)}</time>
+                    <time>{formatNoteDate(note.updatedAt, new Date(), locale)}</time>
                     {note.url && (
                       <a href={note.url} target="_blank" rel="noreferrer" title={note.title || displayDomain(note.url)}>
                         {note.title || displayDomain(note.url)}
@@ -838,8 +844,8 @@ export default function Home() {
                     )}
                   </div>
                   <div className="note-actions">
-                    <button onClick={() => openEditor({ kind: "note", id: note.id })}>编辑</button>
-                    <button onClick={() => handleDelete(note)}>删除</button>
+                    <button onClick={() => openEditor({ kind: "note", id: note.id })}>{t("edit")}</button>
+                    <button onClick={() => handleDelete(note)}>{t("delete")}</button>
                   </div>
                 </footer>
               </article>
@@ -847,8 +853,8 @@ export default function Home() {
             {!visibleNotes.length && (
               <div className="empty-state">
                 <FolioMark />
-                <strong>{query || tagFilter ? "没有匹配的笔记" : "这里还很安静"}</strong>
-                <p>{query || tagFilter ? "换一个词或标签试试。" : "从一句话开始就好。"}</p>
+                <strong>{query || tagFilter ? t("noMatchingNotes") : t("emptyQuiet")}</strong>
+                <p>{query || tagFilter ? t("tryAnotherWord") : t("startWithSentence")}</p>
               </div>
             )}
           </div>
@@ -856,30 +862,30 @@ export default function Home() {
       </div>
       {pendingDelete && (
         <div className="undo-toast" role="status">
-          <span>已删除</span>
-          <button type="button" onClick={undoDelete}>撤销</button>
+          <span>{t("noteDeleted")}</span>
+          <button type="button" onClick={undoDelete}>{t("undo")}</button>
         </div>
       )}
       {editor?.kind === "new" && (
         <NoteEditor
-          heading="新建笔记"
+          heading={t("introNewNote")}
           value={content}
           context={context}
-          placeholder={context.selection ? "为这段内容添加笔记…" : "写下想法…"}
+          placeholder={context.selection ? t("composerPlaceholderSelection") : t("composerPlaceholder")}
           onChange={(value) => { setContent(value); setSaveState("idle"); }}
           onClose={() => closeEditor()}
           onSubmit={() => { closeEditor(); void handleSave(); }}
-          submitLabel="保存"
+          submitLabel={t("save")}
           submitDisabled={!canSave || saveState === "saving"}
         />
       )}
       {editingNote && (
         <NoteEditor
-          heading={formatNoteDate(editingNote.createdAt)}
-          status={draftState === "pending" ? "保存中…" : draftState === "empty" ? "内容为空，未保存" : "已自动保存"}
+          heading={formatNoteDate(editingNote.createdAt, new Date(), locale)}
+          status={draftState === "pending" ? t("saving") : draftState === "empty" ? t("editorStatusEmpty") : t("editorStatusSaved")}
           value={noteDraft}
           context={editingNote}
-          placeholder="写下想法…"
+          placeholder={t("composerPlaceholder")}
           onChange={setNoteDraft}
           onClose={() => closeEditor()}
           onDelete={() => handleDelete(editingNote)}
