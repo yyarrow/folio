@@ -24,6 +24,7 @@ import {
   normalizeSharedContext,
 } from "@/lib/notes";
 import type { Note, PageContext, SyncState } from "@/lib/types";
+import { renderMarkdown } from "@/lib/markdown";
 import NoteEditor from "./note-editor";
 
 type SessionState = "checking" | "signed-in" | "signed-out" | "offline" | "storage-error";
@@ -52,6 +53,8 @@ export default function Home() {
   const [content, setContent] = useState("");
   const [context, setContext] = useState<PageContext>({});
   const [query, setQuery] = useState("");
+  const [tagFilter, setTagFilter] = useState<string | null>(null);
+  const [pendingDelete, setPendingDelete] = useState<Note | null>(null);
   const [editor, setEditor] = useState<EditorTarget | null>(null);
   const [noteDraft, setNoteDraft] = useState("");
   const [draftState, setDraftState] = useState<DraftState>("saved");
@@ -75,6 +78,9 @@ export default function Home() {
   const [message, setMessage] = useState("");
   const [installPrompt, setInstallPrompt] = useState<InstallPromptEvent | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const pendingDeleteRef = useRef<{ note: Note; timer: number } | null>(null);
+  const commitDeletionRef = useRef<(note: Note) => Promise<void>>(async () => undefined);
+  const flushPendingDeleteRef = useRef<() => void>(() => undefined);
   const closeEditorRef = useRef<(save: boolean) => void>(() => undefined);
 
   const syncFromCloud = useCallback(async (scope: string) => {
@@ -217,13 +223,15 @@ export default function Home() {
 
   const visibleNotes = useMemo(() => {
     const normalized = query.trim().toLocaleLowerCase();
-    if (!normalized) return notes;
-    return notes.filter((note) =>
-      [note.content, note.title, note.url, note.selection, note.tags.join(" ")]
+    return notes.filter((note) => {
+      if (pendingDelete && note.id === pendingDelete.id) return false;
+      if (tagFilter && !note.tags.includes(tagFilter)) return false;
+      if (!normalized) return true;
+      return [note.content, note.title, note.url, note.selection, note.tags.join(" ")]
         .filter(Boolean)
-        .some((value) => value!.toLocaleLowerCase().includes(normalized)),
-    );
-  }, [notes, query]);
+        .some((value) => value!.toLocaleLowerCase().includes(normalized));
+    });
+  }, [notes, query, tagFilter, pendingDelete]);
   const tags = useMemo(() => extractTags(content), [content]);
   const canSave = Boolean(content.trim() || context.selection);
 
@@ -404,22 +412,52 @@ export default function Home() {
     return () => document.removeEventListener("visibilitychange", onHidden);
   }, []);
 
-  async function handleDelete(note: Note) {
-    if (!window.confirm("删除这条笔记？")) return;
+  async function commitDeletion(note: Note) {
     await queueDeletion(workspaceScope, note.id);
     setNotes((current) => current.filter((item) => item.id !== note.id));
     if (workspaceScope === LOCAL_SCOPE) setLocalNoteCount((count) => Math.max(0, count - 1));
-    if (editor?.kind === "note" && editor.id === note.id) closeEditor(false);
     if (session === "signed-in" && navigator.onLine) {
       try {
         await syncFromCloud(workspaceScope);
-        return;
       } catch {
         setSession("offline");
       }
     }
-    setMessage(workspaceScope === LOCAL_SCOPE ? "已从这台设备删除。" : "已在本机删除，恢复网络后同步。");
   }
+  commitDeletionRef.current = commitDeletion;
+
+  function flushPendingDelete() {
+    const pending = pendingDeleteRef.current;
+    if (!pending) return;
+    window.clearTimeout(pending.timer);
+    pendingDeleteRef.current = null;
+    setPendingDelete(null);
+    void commitDeletionRef.current(pending.note);
+  }
+
+  flushPendingDeleteRef.current = flushPendingDelete;
+
+  function handleDelete(note: Note) {
+    flushPendingDelete();
+    if (editor?.kind === "note" && editor.id === note.id) closeEditor(false);
+    const timer = window.setTimeout(flushPendingDelete, 5000);
+    pendingDeleteRef.current = { note, timer };
+    setPendingDelete(note);
+  }
+
+  function undoDelete() {
+    const pending = pendingDeleteRef.current;
+    if (!pending) return;
+    window.clearTimeout(pending.timer);
+    pendingDeleteRef.current = null;
+    setPendingDelete(null);
+  }
+
+  useEffect(() => {
+    const onHidden = () => { if (document.visibilityState === "hidden") flushPendingDeleteRef.current(); };
+    document.addEventListener("visibilitychange", onHidden);
+    return () => document.removeEventListener("visibilitychange", onHidden);
+  }, []);
 
   async function handleLogout() {
     await fetch("/api/auth/logout", { method: "POST" }).catch(() => undefined);
@@ -719,6 +757,11 @@ export default function Home() {
             <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜索笔记、网页或标签" />
             {query && <button onClick={() => setQuery("")} aria-label="清空搜索">×</button>}
           </label>
+          {tagFilter && (
+            <button type="button" className="tag-filter" onClick={() => setTagFilter(null)} aria-label="清除标签筛选">
+              #{tagFilter} <span aria-hidden="true">×</span>
+            </button>
+          )}
 
           <div className="note-list">
             {visibleNotes.map((note) => (
@@ -728,7 +771,8 @@ export default function Home() {
                   role="button"
                   tabIndex={0}
                   aria-label="打开并编辑笔记"
-                  onClick={() => {
+                  onClick={(event) => {
+                    if ((event.target as HTMLElement).closest("a, button")) return;
                     if (!window.getSelection()?.toString()) openEditor({ kind: "note", id: note.id });
                   }}
                   onKeyDown={(event) => {
@@ -738,9 +782,11 @@ export default function Home() {
                     }
                   }}
                 >
-                  {note.content && <p>{note.content}</p>}
+                  {note.content && <div className="note-md">{renderMarkdown(note.content, { onTagClick: setTagFilter })}</div>}
                   {note.selection && <blockquote>{note.selection}</blockquote>}
-                  {note.tags.length > 0 && <div className="note-tags">{note.tags.map((tag) => <span key={tag}>#{tag}</span>)}</div>}
+                  {note.tags.length > 0 && <div className="note-tags">{note.tags.map((tag) => (
+                    <button type="button" key={tag} onClick={(event) => { event.stopPropagation(); setTagFilter(tag); }}>#{tag}</button>
+                  ))}</div>}
                 </div>
                 <footer>
                   <div className="note-meta">
@@ -753,7 +799,7 @@ export default function Home() {
                   </div>
                   <div className="note-actions">
                     <button onClick={() => openEditor({ kind: "note", id: note.id })}>编辑</button>
-                    <button onClick={() => void handleDelete(note)}>删除</button>
+                    <button onClick={() => handleDelete(note)}>删除</button>
                   </div>
                 </footer>
               </article>
@@ -761,13 +807,19 @@ export default function Home() {
             {!visibleNotes.length && (
               <div className="empty-state">
                 <FolioMark />
-                <strong>{query ? "没有匹配的笔记" : "这里还很安静"}</strong>
-                <p>{query ? "换一个词或标签试试。" : "从一句话开始就好。"}</p>
+                <strong>{query || tagFilter ? "没有匹配的笔记" : "这里还很安静"}</strong>
+                <p>{query || tagFilter ? "换一个词或标签试试。" : "从一句话开始就好。"}</p>
               </div>
             )}
           </div>
         </section>
       </div>
+      {pendingDelete && (
+        <div className="undo-toast" role="status">
+          <span>已删除</span>
+          <button type="button" onClick={undoDelete}>撤销</button>
+        </div>
+      )}
       {editor?.kind === "new" && (
         <NoteEditor
           heading="新建笔记"
@@ -790,7 +842,7 @@ export default function Home() {
           placeholder="写下想法…"
           onChange={setNoteDraft}
           onClose={() => closeEditor()}
-          onDelete={() => void handleDelete(editingNote)}
+          onDelete={() => handleDelete(editingNote)}
         />
       )}
     </main>
