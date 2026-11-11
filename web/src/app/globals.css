@@ -920,3 +920,85 @@ button:not(:disabled):active { transform: scale(.97); }
   .editor-body { padding-top: 40px; }
   .editor-body textarea { font-size: 20px; }
 }
+
+/* Waitlist request (account menu) */
+.waitlist-toggle {
+  justify-self: start;
+  border: 0;
+  background: transparent;
+  color: var(--text-3);
+  font-size: var(--fs-2xs);
+  text-decoration: underline;
+  cursor: pointer;
+  padding: 0;
+}
+.account-login .waitlist-toggle { height: auto; background: transparent; color: var(--text-3); font-weight: var(--fw-regular); }
+.waitlist-form { display: grid; gap: 7px; padding: 7px; border-bottom: 1px solid var(--hairline); }
+.waitlist-form textarea {
+  width: 100%;
+  min-height: 64px;
+  resize: vertical;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
+  outline: 0;
+  padding: 8px 10px;
+  background: var(--input-bg);
+  color: var(--text);
+  font: inherit;
+  font-size: var(--fs-xs);
+}
+.waitlist-form textarea:focus { border-color: var(--focus-border); box-shadow: 0 0 0 3px var(--focus-ring); }
+.waitlist-form button {
+  height: 38px;
+  border: 0;
+  border-radius: var(--radius-md);
+  background: var(--ink);
+  color: var(--ink-on);
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-semibold);
+  cursor: pointer;
+}
+.waitlist-form button:disabled { cursor: not-allowed; opacity: .34; }
+.waitlist-done { color: var(--success); font-size: var(--fs-2xs); line-height: 1.5; padding: 7px; }
+
+/* Admin */
+.admin-page { max-width: 760px; margin: 0 auto; padding: 32px 16px 64px; color: var(--text); font-family: var(--font-sans); }
+.admin-header { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 20px; }
+.admin-header h1 { margin: 0; font-size: var(--fs-xl); font-weight: var(--fw-semibold); }
+.admin-header a { color: var(--text-3); font-size: var(--fs-sm); }
+.admin-empty { color: var(--text-3); text-align: center; padding: 48px 0; }
+.admin-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.admin-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+}
+.admin-main { flex: 1; min-width: 0; display: grid; gap: 3px; }
+.admin-main strong { font-size: var(--fs-sm); overflow-wrap: anywhere; }
+.admin-main p { margin: 0; color: var(--text-2); font-size: var(--fs-xs); line-height: 1.5; white-space: pre-wrap; overflow-wrap: anywhere; }
+.admin-main small { color: var(--text-4); font-size: var(--fs-2xs); }
+.admin-main .admin-error { color: var(--danger); }
+.admin-badge { flex: none; padding: 2px 8px; border-radius: var(--radius-full); background: var(--surface-muted); color: var(--text-3); font-size: var(--fs-2xs); }
+.admin-badge.invited { background: var(--accent-soft); color: var(--accent-strong); }
+.admin-badge.joined { background: var(--success-soft); color: var(--success); }
+.admin-button {
+  flex: none;
+  height: 34px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: var(--radius-md);
+  background: var(--ink);
+  color: var(--ink-on);
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-semibold);
+  cursor: pointer;
+}
+.admin-button:disabled { cursor: not-allowed; opacity: .34; }
+@media (max-width: 560px) {
+  .admin-row { flex-wrap: wrap; }
+  .admin-main { flex-basis: 100%; }
+}

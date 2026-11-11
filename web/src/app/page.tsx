@@ -65,6 +65,10 @@ export default function Home() {
   const [email, setEmail] = useState("");
   const [inviteCode, setInviteCode] = useState("");
   const [sendingLogin, setSendingLogin] = useState(false);
+  const [showWaitlist, setShowWaitlist] = useState(false);
+  const [waitlistNote, setWaitlistNote] = useState("");
+  const [submittingWaitlist, setSubmittingWaitlist] = useState(false);
+  const [waitlistDone, setWaitlistDone] = useState(false);
   const [showAccountMenu, setShowAccountMenu] = useState(false);
   const [deviceCode, setDeviceCode] = useState("");
   const [creatingDeviceCode, setCreatingDeviceCode] = useState(false);
@@ -223,6 +227,28 @@ export default function Home() {
   const tags = useMemo(() => extractTags(content), [content]);
   const canSave = Boolean(content.trim() || context.selection);
 
+  async function handleWaitlist(event: FormEvent) {
+    event.preventDefault();
+    if (submittingWaitlist) return;
+    setSubmittingWaitlist(true);
+    setMessage("");
+    try {
+      const response = await fetch("/api/waitlist", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ email, note: waitlistNote }),
+      });
+      const data = await response.json().catch(() => ({})) as { error?: string };
+      if (!response.ok) {
+        setMessage(data.error ?? "暂时无法提交申请。");
+        return;
+      }
+      setWaitlistDone(true);
+    } finally {
+      setSubmittingWaitlist(false);
+    }
+  }
+
   async function handleLogin(event: FormEvent) {
     event.preventDefault();
     if (sendingLogin) return;
@@ -342,6 +368,16 @@ export default function Home() {
       closeEditorRef.current(save);
     }
   }
+
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    const invite = url.searchParams.get("invite");
+    if (!invite) return;
+    setInviteCode(invite);
+    setShowAccountMenu(true);
+    url.searchParams.delete("invite");
+    window.history.replaceState(window.history.state, "", url.pathname + url.search + url.hash);
+  }, []);
 
   useEffect(() => {
     const onPopState = () => closeEditorRef.current(true);
@@ -561,7 +597,33 @@ export default function Home() {
                       autoComplete="one-time-code"
                     />
                     <button disabled={!email.trim() || sendingLogin}>{sendingLogin ? "发送中…" : "发送登录链接"}</button>
+                    {!showWaitlist && (
+                      <button type="button" className="waitlist-toggle" onClick={() => setShowWaitlist(true)}>
+                        没有邀请码？申请加入等候名单
+                      </button>
+                    )}
                   </form>
+                  {showWaitlist && (waitlistDone ? (
+                    <div className="waitlist-done" role="status">已收到申请，邀请码会发到你的邮箱。</div>
+                  ) : (
+                    <form className="waitlist-form" onSubmit={handleWaitlist}>
+                      <input
+                        type="email"
+                        value={email}
+                        onChange={(event) => setEmail(event.target.value)}
+                        placeholder="邮箱"
+                        autoComplete="email"
+                        aria-label="邮箱"
+                      />
+                      <textarea
+                        value={waitlistNote}
+                        onChange={(event) => setWaitlistNote(event.target.value)}
+                        placeholder="想用 Folio 记录什么？（可选）"
+                        maxLength={280}
+                      />
+                      <button disabled={!email.trim() || submittingWaitlist}>{submittingWaitlist ? "提交中…" : "提交申请"}</button>
+                    </form>
+                  ))}
                 </>
               )}
               <button onClick={handleExport}>导出 JSON</button>

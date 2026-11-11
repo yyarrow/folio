@@ -1,8 +1,12 @@
 import { NextResponse } from "next/server";
 import {
   checkRateLimit,
+  checkOneTimeInvite,
+  claimOneTimeInvite,
   createUser,
   findUserByEmail,
+  recordInviteUser,
+  releaseInvite,
   isAuthConfigured,
   isEmail,
   isSameOrigin,
@@ -40,10 +44,25 @@ export async function POST(request: Request) {
     assertEmailConfigured();
     let user = await findUserByEmail(email);
     if (!user) {
-      if (!verifyInviteCode(candidateInvite)) {
-        return NextResponse.json({ error: "首次使用需要有效邀请码。" }, { status: 403 });
+      if (verifyInviteCode(candidateInvite)) {
+        user = await createUser(email);
+      } else {
+        const check = await checkOneTimeInvite(candidateInvite, email);
+        if (check === "other-email") {
+          return NextResponse.json({ error: "这个邀请码对应的是另一个邮箱。" }, { status: 403 });
+        }
+        const inviteId = check === "valid" ? await claimOneTimeInvite(candidateInvite, email) : null;
+        if (!inviteId) {
+          return NextResponse.json({ error: "首次使用需要有效邀请码。" }, { status: 403 });
+        }
+        try {
+          user = await createUser(email);
+        } catch (error) {
+          await releaseInvite(inviteId).catch(() => undefined);
+          throw error;
+        }
+        await recordInviteUser(inviteId, user.id);
       }
-      user = await createUser(email);
     }
     const previewUrl = await sendLoginEmail(email, await issueLoginToken(user.id));
     return NextResponse.json({ ok: true, message: "登录链接已发送。", previewUrl });

@@ -46,3 +46,17 @@ export async function sendLoginEmail(email: string, token: string): Promise<stri
   );
   return process.env.NODE_ENV === "production" ? undefined : url;
 }
+
+function escapeHtml(value: string): string {
+  return value.replace(/&/gu, "&amp;").replace(/</gu, "&lt;").replace(/>/gu, "&gt;").replace(/"/gu, "&quot;").replace(/'/gu, "&#39;");
+}
+
+export async function sendInviteEmail(email: string, code: string): Promise<string | undefined> {
+  const url = `${appUrl()}/?invite=${encodeURIComponent(code)}`;
+  await deliver(
+    email,
+    "你的 Folio 邀请码",
+    `<p>你的 Folio 邀请码是：</p><p style="font-size:24px;font-weight:600;letter-spacing:2px;font-family:monospace">${escapeHtml(code)}</p><p><a href="${escapeHtml(url)}" style="display:inline-block;padding:10px 18px;border-radius:8px;background:#111;color:#fff;text-decoration:none">使用邀请码加入 Folio</a></p><p>邀请码 30 天内有效，只能使用一次，并且必须配合当前邮箱地址（${escapeHtml(email)}）使用。如果不是你申请的，请忽略此邮件。</p>`,
+  );
+  return process.env.NODE_ENV === "production" ? undefined : url;
+}
