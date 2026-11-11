@@ -6,6 +6,24 @@ describe("mobile note helpers", () => {
     expect(extractTags("今天想到 #产品 #Agent #产品")).toEqual(["产品", "agent"]);
   });
 
+  test("recognizes tags right after CJK text and punctuation", () => {
+    expect(extractTags("足够长。#测试 读书，#笔记 学习#读书 （#草稿）")).toEqual([
+      "测试",
+      "笔记",
+      "读书",
+      "草稿",
+    ]);
+    expect(extractTags("#开头 start #tag 中文#标签")).toEqual(["开头", "tag", "标签"]);
+  });
+
+  test("does not treat code, URL, entity, or doubled hashes as tags", () => {
+    expect(extractTags("C# abc#def https://x.com/a#section x.com/#foo &#123; ##")).toEqual([]);
+  });
+
+  test("does not treat Markdown headings as tags", () => {
+    expect(extractTags("# Title\n## Subtitle")).toEqual([]);
+  });
+
   test("separates a shared URL from selected text", () => {
     expect(
       normalizeSharedContext({

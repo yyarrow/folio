@@ -23,6 +23,24 @@ describe("note helpers", () => {
     ]);
   });
 
+  it("recognizes tags right after CJK text and punctuation", () => {
+    expect(extractTags("足够长。#测试 读书，#笔记 学习#读书 （#草稿）")).toEqual([
+      "测试",
+      "笔记",
+      "读书",
+      "草稿",
+    ]);
+    expect(extractTags("#开头 start #tag 中文#标签")).toEqual(["开头", "tag", "标签"]);
+  });
+
+  it("does not treat code, URL, entity, or doubled hashes as tags", () => {
+    expect(extractTags("C# abc#def https://x.com/a#section x.com/#foo &#123; ##")).toEqual([]);
+  });
+
+  it("does not treat Markdown headings as tags", () => {
+    expect(extractTags("# Title\n## Subtitle")).toEqual([]);
+  });
+
   it("searches note content, context, and tags", () => {
     expect(matchesSearch(note({ title: "A useful page" }), "useful")).toBe(true);
     expect(matchesSearch(note({ selection: "Quoted passage" }), "passage")).toBe(true);
