@@ -20,7 +20,7 @@
   "syncNow": { "message": "Sync now" },
   "disconnectCloud": { "message": "Disconnect cloud" },
   "connectCloud": { "message": "Connect Folio Cloud" },
-  "deviceCodePlaceholder": { "message": "Enter the code from the web app" },
+  "deviceCodePlaceholder": { "message": "Enter the connection code from the web" },
   "connecting": { "message": "Connecting…" },
   "connectAndSync": { "message": "Connect and sync" },
   "exportMarkdown": { "message": "Export Markdown" },

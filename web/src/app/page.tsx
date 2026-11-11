@@ -25,6 +25,7 @@ import {
 } from "@/lib/notes";
 import type { Note, PageContext, SyncState } from "@/lib/types";
 import { renderMarkdown } from "@/lib/markdown";
+import DeviceCodeCard from "./device-code-card";
 import NoteEditor from "./note-editor";
 
 type SessionState = "checking" | "signed-in" | "signed-out" | "offline" | "storage-error";
@@ -34,7 +35,7 @@ type DraftState = "saved" | "pending" | "empty";
 type CurrentUser = { id: string; email: string };
 
 const CONNECT_INTENT_KEY = "folio-connect-extension";
-const EXTENSION_DOWNLOAD_URL = "https://github.com/yyarrow/folio/releases/latest/download/folio-extension.zip";
+const CHROME_STORE_URL = "https://chromewebstore.google.com/detail/folio/ieicolnjeafcjmbndojijhmeechipbee";
 
 interface InstallPromptEvent extends Event {
   prompt(): Promise<void>;
@@ -76,6 +77,7 @@ export default function Home() {
   const [showAccountMenu, setShowAccountMenu] = useState(false);
   const [connectIntent, setConnectIntent] = useState(false);
   const [deviceCode, setDeviceCode] = useState("");
+  const [deviceCodeExpiresAt, setDeviceCodeExpiresAt] = useState("");
   const [creatingDeviceCode, setCreatingDeviceCode] = useState(false);
   const [message, setMessage] = useState("");
   const [installPrompt, setInstallPrompt] = useState<InstallPromptEvent | null>(null);
@@ -525,15 +527,15 @@ export default function Home() {
   async function handleCreateDeviceCode() {
     if (creatingDeviceCode) return;
     setCreatingDeviceCode(true);
-    setDeviceCode("");
     try {
       const response = await fetch("/api/auth/device-code", { method: "POST" });
-      const data = await response.json().catch(() => ({})) as { code?: string; error?: string };
+      const data = await response.json().catch(() => ({})) as { code?: string; expiresAt?: string; error?: string };
       if (!response.ok || !data.code) {
         setMessage(data.error ?? "暂时无法生成连接码。");
         return;
       }
       setDeviceCode(data.code);
+      setDeviceCodeExpiresAt(data.expiresAt ?? new Date(Date.now() + 10 * 60 * 1000).toISOString());
     } finally {
       setCreatingDeviceCode(false);
     }
@@ -603,35 +605,42 @@ export default function Home() {
       <header className="topbar">
         <div className="brand"><FolioMark /><span>Folio</span></div>
         <div className="top-actions">
-          <button
-            className="install-button"
-            onClick={() => setShowAccountMenu((open) => !open)}
-            aria-expanded={showAccountMenu}
-          >
-            安装
-          </button>
+          {installPrompt && (
+            <button className="install-button" onClick={() => void handleInstall()}>安装</button>
+          )}
+          {currentUser && (
+            <button
+              className="code-button"
+              onClick={() => { setShowAccountMenu(true); void handleCreateDeviceCode(); }}
+              disabled={creatingDeviceCode || session === "offline"}
+              aria-label="生成连接码"
+              title="生成插件连接码"
+            >
+              <svg viewBox="0 0 20 20" aria-hidden="true">
+                <path d="M8.5 11.5a3.5 3.5 0 0 0 5 0l2.5-2.5a3.5 3.5 0 0 0-5-5l-1 1" />
+                <path d="M11.5 8.5a3.5 3.5 0 0 0-5 0L4 11a3.5 3.5 0 0 0 5 5l1-1" />
+              </svg>
+            </button>
+          )}
           <span className={`sync-status ${session}`}>
             <i /> {session === "signed-in" ? "已同步" : session === "signed-out" ? "仅本机" : "离线"}
           </span>
           <button className="more-button" onClick={() => setShowAccountMenu((open) => !open)} aria-label="账号设置">•••</button>
           {showAccountMenu && (
             <div className="account-menu">
-              <div className="install-options">
-                {installPrompt && <button onClick={() => void handleInstall()}>安装网页版</button>}
-                <a href={EXTENSION_DOWNLOAD_URL}>下载浏览器插件</a>
-                <small>下载并解压 → 打开 chrome://extensions → 开启开发者模式并加载已解压的扩展。</small>
-              </div>
               {currentUser ? (
                 <>
                   <div className="account-email">{currentUser.email}</div>
                   <button onClick={() => void handleCreateDeviceCode()} disabled={creatingDeviceCode || session === "offline"}>
-                    {creatingDeviceCode ? "生成中…" : "连接浏览器插件"}
+                    {creatingDeviceCode ? "生成中…" : "生成连接码"}
                   </button>
                   {deviceCode && (
-                    <div className="device-code" role="status">
-                      <strong>{deviceCode}</strong>
-                      <span>10 分钟内在插件中输入</span>
-                    </div>
+                    <DeviceCodeCard
+                      code={deviceCode}
+                      expiresAt={deviceCodeExpiresAt}
+                      refreshing={creatingDeviceCode}
+                      onRefresh={() => void handleCreateDeviceCode()}
+                    />
                   )}
                   {localNoteCount > 0 && (
                     <button onClick={() => void handleMergeLocalNotes()} disabled={mergingLocal || session === "offline"}>
@@ -641,10 +650,6 @@ export default function Home() {
                 </>
               ) : (
                 <>
-                  <div className="local-account-copy">
-                    <strong>Folio Local</strong>
-                    <span>无需账号，笔记仅保存在这台设备。</span>
-                  </div>
                   {connectIntent && (
                     <p className="connect-hint" role="status">登录 Folio Cloud 后，会自动生成浏览器插件的连接码。</p>
                   )}
@@ -698,6 +703,7 @@ export default function Home() {
                   ))}
                 </>
               )}
+              <a href={CHROME_STORE_URL} target="_blank" rel="noreferrer">安装 Chrome 插件 ↗</a>
               <button onClick={handleExport}>导出 JSON</button>
               <a href="/privacy">隐私与数据</a>
               {currentUser && <button onClick={() => void handleLogout()}>退出登录</button>}
