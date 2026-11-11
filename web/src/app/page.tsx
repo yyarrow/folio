@@ -750,7 +750,7 @@ export default function Home() {
         <section className="library" aria-label="最近笔记">
           <div className="library-heading">
             <h2>最近</h2>
-            <span>{notes.length}</span>
+            <span>{notes.length - (pendingDelete ? 1 : 0)}</span>
           </div>
           <label className="search-field">
             <span>⌕</span>

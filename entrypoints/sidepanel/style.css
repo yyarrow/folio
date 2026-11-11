@@ -239,7 +239,7 @@ button:not(:disabled):active { transform: scale(.97); }
   cursor: pointer;
 }
 .note-md .md-tag:hover { text-decoration: underline; }
-.note-copy blockquote { display: -webkit-box; margin: 8px 0 0; overflow: hidden; border-left: 2px solid var(--accent-line); padding-left: 9px; color: var(--text-3); font-family: var(--font-serif); font-size: var(--fs-xs); line-height: 1.5; white-space: pre-wrap; -webkit-box-orient: vertical; -webkit-line-clamp: 3; }
+.note-body > blockquote { display: -webkit-box; margin: 8px 0 0; overflow: hidden; border-left: 2px solid var(--accent-line); padding-left: 9px; color: var(--text-3); font-family: var(--font-serif); font-size: var(--fs-xs); line-height: 1.5; white-space: pre-wrap; -webkit-box-orient: vertical; -webkit-line-clamp: 3; }
 .note-tags { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 9px; }
 .note-tags button {
   border: 0;

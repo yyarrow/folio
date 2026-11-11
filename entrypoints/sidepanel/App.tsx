@@ -448,7 +448,7 @@ export default function App() {
       <section className="library" aria-label={t("notes")}>
         <div className="library-heading">
           <h1>{t("recent")}</h1>
-          <span>{notes.length}</span>
+          <span>{notes.length - (pendingDelete ? 1 : 0)}</span>
         </div>
         <label className="search-field">
           <span>⌕</span>
