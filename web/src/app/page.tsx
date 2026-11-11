@@ -154,6 +154,11 @@ export default function Home() {
       const authResult = search.get("auth");
       if (authResult === "expired") {
         setMessage(tRef.current("loginLinkExpired"));
+      } else if (authResult === "invite-invalid") {
+        setMessage(tRef.current("inviteLinkInvalid"));
+      } else if (authResult === "existing") {
+        setMessage(tRef.current("inviteAccountExists"));
+        setShowAccountMenu(true);
       }
       const shared = await consumeSharedContext();
       if (shared) {
@@ -392,6 +397,8 @@ export default function Home() {
     if (!invite) return;
     setInviteCode(invite);
     setShowAccountMenu(true);
+    // The code is filled in; the only thing left is the email.
+    window.setTimeout(() => document.querySelector<HTMLInputElement>(".account-login input[type=email]")?.focus(), 120);
     url.searchParams.delete("invite");
     window.history.replaceState(window.history.state, "", url.pathname + url.search + url.hash);
   }, []);

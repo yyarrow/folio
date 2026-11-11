@@ -2,9 +2,11 @@ import { describe, expect, test } from "bun:test";
 import { decryptInviteCodeWith, encryptInviteCodeWith } from "@/lib/invite-crypto";
 import {
   INVITE_ALPHABET,
+  INVITE_MESSAGE_MAX,
   WAITLIST_NOTE_MAX,
   generateInviteCode,
   normalizeInviteCode,
+  parseInviteMessage,
   parseWaitlistNote,
 } from "../src/lib/invites";
 
@@ -70,5 +72,17 @@ describe("invite code display encryption", () => {
     bytes[bytes.length - 1] ^= 1;
     expect(decryptInviteCodeWith(bytes.toString("base64"), "secret-a")).toBeNull();
     expect(decryptInviteCodeWith(null, "secret-a")).toBeNull();
+  });
+});
+
+describe("parseInviteMessage", () => {
+  test("trims, normalizes newlines, and caps length", () => {
+    expect(parseInviteMessage("  你好\r\n\r\n谢谢  ")).toBe("你好\n\n谢谢");
+    expect(parseInviteMessage("x".repeat(INVITE_MESSAGE_MAX + 50))!.length).toBe(INVITE_MESSAGE_MAX);
+  });
+  test("treats empty or non-string input as no message", () => {
+    expect(parseInviteMessage("   ")).toBeNull();
+    expect(parseInviteMessage(42)).toBeNull();
+    expect(parseInviteMessage(undefined)).toBeNull();
   });
 });

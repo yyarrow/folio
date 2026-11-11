@@ -4,7 +4,7 @@ import { langFromRequest } from "@/lib/i18n";
 import { requestT } from "@/lib/server-messages";
 import { createInviteForEmail, decryptInviteCode, findUserByEmail, isEmail, isSameOrigin, normalizeEmail, requireOwner } from "@/lib/auth";
 import { database, ensureSchema } from "@/lib/db";
-import { inviteKind, inviteStatus } from "@/lib/invites";
+import { inviteKind, inviteStatus, parseInviteMessage } from "@/lib/invites";
 import { assertEmailConfigured, sendInviteEmail } from "@/lib/email";
 
 export async function POST(request: Request) {
@@ -15,7 +15,7 @@ export async function POST(request: Request) {
   const owner = await requireOwner(request);
   if (owner instanceof Response) return owner;
 
-  const body = await request.json().catch(() => null) as { email?: unknown } | null;
+  const body = await request.json().catch(() => null) as { email?: unknown; message?: unknown } | null;
   const email = normalizeEmail(body?.email);
   if (!isEmail(email)) {
     return NextResponse.json({ error: t("api.invalidEmail") }, { status: 400 });
@@ -34,7 +34,7 @@ export async function POST(request: Request) {
       ON CONFLICT (email) DO NOTHING
     `;
     const code = await createInviteForEmail(email);
-    const previewUrl = await sendInviteEmail(email, code, langFromRequest(request));
+    const previewUrl = await sendInviteEmail(email, code, langFromRequest(request), parseInviteMessage(body?.message));
     return NextResponse.json({ ok: true, previewUrl });
   } catch (error) {
     console.error("invite failed", error);

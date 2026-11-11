@@ -26,10 +26,11 @@ const zh = {
   "email.login.intro": "点击下面的链接登录 Folio：",
   "email.login.cta": "登录 Folio",
   "email.login.note": "链接将在 15 分钟后失效，且只能使用一次。如果不是你发起的请求，请忽略此邮件。",
-  "email.invite.subject": "你的 Folio 邀请码",
-  "email.invite.intro": "你的 Folio 邀请码是：",
-  "email.invite.cta": "使用邀请码加入 Folio",
-  "email.invite.note": "邀请码 30 天内有效，只能使用一次，并且必须配合当前邮箱地址（{email}）使用。如果不是你申请的，请忽略此邮件。",
+  "email.invite.subject": "你被邀请加入 Folio",
+  "email.invite.intro": "点击下面的按钮，就会用 {email} 直接登录 Folio Cloud，不需要再输入邮箱。",
+  "email.invite.cta": "加入 Folio",
+  "email.invite.codeNote": "按钮打不开时，也可以在 Folio 登录时填写这个邀请码：",
+  "email.invite.note": "链接和邀请码 30 天内有效，只能使用一次。如果不是你申请的，请忽略此邮件。",
 } as const;
 
 export type ServerKey = keyof typeof zh;
@@ -59,10 +60,11 @@ const en: Record<ServerKey, string> = {
   "email.login.intro": "Use the link below to sign in to Folio:",
   "email.login.cta": "Sign in to Folio",
   "email.login.note": "This link expires in 15 minutes and can be used only once. If you didn't request it, you can ignore this email.",
-  "email.invite.subject": "Your Folio invite code",
-  "email.invite.intro": "Your Folio invite code is:",
-  "email.invite.cta": "Join Folio with this code",
-  "email.invite.note": "This code is valid for 30 days, works once, and must be used with this email address ({email}). If you didn't request it, you can ignore this email.",
+  "email.invite.subject": "You're invited to Folio",
+  "email.invite.intro": "Use the button below to sign in to Folio Cloud as {email}. No need to type your email again.",
+  "email.invite.cta": "Join Folio",
+  "email.invite.codeNote": "If the button doesn't work, enter this invite code when signing in to Folio:",
+  "email.invite.note": "The link and code are valid for 30 days and work once. If you didn't request this, you can ignore this email.",
 };
 
 export const serverMessages: Record<Lang, Record<ServerKey, string>> = { zh, en };

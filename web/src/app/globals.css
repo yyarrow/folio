@@ -1153,3 +1153,26 @@ button:not(:disabled):active { transform: scale(.97); }
   font-size: var(--fs-xs);
   line-height: 1.5;
 }
+
+.admin-invite-form { display: grid; gap: 8px; }
+.admin-invite-form .admin-input { height: 38px; }
+.admin-invite-form > .admin-button { justify-self: start; }
+.admin-message-label { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin-top: 4px; }
+.admin-message-label label { color: var(--text-2); font-size: var(--fs-xs); font-weight: var(--fw-semibold); }
+.admin-link-button { border: 0; padding: 0; background: none; color: var(--accent); font-size: var(--fs-xs); cursor: pointer; }
+.admin-link-button:hover { text-decoration: underline; text-underline-offset: 2px; }
+.admin-textarea {
+  width: 100%;
+  min-height: 150px;
+  resize: vertical;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 10px 12px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: var(--fs-sm);
+  line-height: 1.65;
+}
+.admin-textarea:focus, .admin-invite-form .admin-input:focus { outline: none; border-color: var(--focus-border); box-shadow: 0 0 0 3px var(--focus-ring); }
+.admin-hint { margin: 0; color: var(--text-3); line-height: 1.6; }
