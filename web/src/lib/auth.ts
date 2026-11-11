@@ -263,9 +263,9 @@ export async function checkOneTimeInvite(code: string, email: string): Promise<I
     SELECT email FROM folio_invites
     WHERE code_hash = ${inviteCodeHash(code)} AND used_at IS NULL AND expires_at > now()
     LIMIT 1
-  ` as { email: string }[];
+  ` as { email: string | null }[];
   if (!rows[0]) return "invalid";
-  return rows[0].email === email ? "valid" : "other-email";
+  return rows[0].email === null || rows[0].email === email ? "valid" : "other-email";
 }
 
 /** Atomically claim a one-time invite for an email. Returns the invite id, or null. */
@@ -274,8 +274,8 @@ export async function claimOneTimeInvite(code: string, email: string): Promise<s
   const sql = await database();
   const rows = await sql`
     UPDATE folio_invites
-    SET used_at = now()
-    WHERE code_hash = ${inviteCodeHash(code)} AND email = ${email} AND used_at IS NULL AND expires_at > now()
+    SET used_at = now(), email = ${email}
+    WHERE code_hash = ${inviteCodeHash(code)} AND (email = ${email} OR email IS NULL) AND used_at IS NULL AND expires_at > now()
     RETURNING id
   ` as { id: string }[];
   return rows[0]?.id ?? null;
@@ -288,7 +288,12 @@ export async function recordInviteUser(inviteId: string, userId: string): Promis
 
 export async function releaseInvite(inviteId: string): Promise<void> {
   const sql = await database();
-  await sql`UPDATE folio_invites SET used_at = NULL, used_by = NULL WHERE id = ${inviteId}`;
+  // A generic code records its claimer's email on claim; clear it again so the code stays unbound.
+  await sql`
+    UPDATE folio_invites
+    SET used_at = NULL, used_by = NULL, email = CASE WHEN kind = 'generic' THEN NULL ELSE email END
+    WHERE id = ${inviteId}
+  `;
 }
 
 export async function createInviteForEmail(email: string): Promise<string> {
@@ -298,9 +303,20 @@ export async function createInviteForEmail(email: string): Promise<string> {
   const id = `inv_${randomBytes(12).toString("hex")}`;
   const expiresAt = new Date(Date.now() + INVITE_TTL_MS);
   await sql`DELETE FROM folio_invites WHERE email = ${email} AND used_at IS NULL`;
-  await sql`INSERT INTO folio_invites (id, code_hash, email, expires_at) VALUES (${id}, ${inviteCodeHash(code)}, ${email}, ${expiresAt})`;
+  await sql`INSERT INTO folio_invites (id, code_hash, email, kind, expires_at) VALUES (${id}, ${inviteCodeHash(code)}, ${email}, 'email', ${expiresAt})`;
   await sql`UPDATE folio_waitlist SET invited_at = now() WHERE email = ${email}`;
   return code;
+}
+
+/** Create an unbound invite code that works for any email. Does not touch other codes. */
+export async function createGenericInvite(): Promise<{ code: string; expiresAt: string }> {
+  await ensureSchema();
+  const sql = await database();
+  const code = generateInviteCode();
+  const id = `inv_${randomBytes(12).toString("hex")}`;
+  const expiresAt = new Date(Date.now() + INVITE_TTL_MS);
+  await sql`INSERT INTO folio_invites (id, code_hash, email, kind, expires_at) VALUES (${id}, ${inviteCodeHash(code)}, NULL, 'generic', ${expiresAt})`;
+  return { code, expiresAt: expiresAt.toISOString() };
 }
 
 export async function requireOwner(request: Request): Promise<AuthenticatedUser | Response> {

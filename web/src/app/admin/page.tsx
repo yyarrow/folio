@@ -13,6 +13,18 @@ interface Entry {
   status: Status;
 }
 
+interface InviteRow {
+  id: string;
+  email: string | null;
+  createdAt: string;
+  expiresAt: string;
+  usedAt: string | null;
+  status: "unused" | "used" | "expired";
+  kind: "generic" | "email";
+}
+
+const INVITE_STATUS_LABEL: Record<InviteRow["status"], UiKey> = { unused: "adminInviteUnused", used: "adminInviteUsed", expired: "adminInviteExpired" };
+
 const STATUS_LABEL: Record<Status, UiKey> = { waiting: "adminStatusWaiting", invited: "adminStatusInvited", joined: "adminStatusJoined" };
 
 export default function AdminPage() {
@@ -22,6 +34,26 @@ export default function AdminPage() {
   const [entries, setEntries] = useState<Entry[]>([]);
   const [sending, setSending] = useState<Record<string, boolean>>({});
   const [errors, setErrors] = useState<Record<string, string>>({});
+
+  const [invites, setInvites] = useState<InviteRow[]>([]);
+  const [inviteEmail, setInviteEmail] = useState("");
+  const [inviteBusy, setInviteBusy] = useState(false);
+  const [inviteMessage, setInviteMessage] = useState<{ text: string; error: boolean } | null>(null);
+  const [generating, setGenerating] = useState(false);
+  const [generated, setGenerated] = useState<string | null>(null);
+  const [generateError, setGenerateError] = useState("");
+  const [copied, setCopied] = useState(false);
+
+  const loadInvites = useCallback(async () => {
+    try {
+      const response = await fetch("/api/admin/invites", { cache: "no-store" });
+      if (!response.ok) return;
+      const data = await response.json() as { invites: InviteRow[] };
+      setInvites(data.invites);
+    } catch {
+      // History is best-effort.
+    }
+  }, []);
 
   const load = useCallback(async () => {
     try {
@@ -38,7 +70,66 @@ export default function AdminPage() {
 
   useEffect(() => {
     void load();
-  }, [load]);
+    void loadInvites();
+  }, [load, loadInvites]);
+
+  async function inviteDirect(event: React.FormEvent) {
+    event.preventDefault();
+    const email = inviteEmail.trim();
+    if (!email) return;
+    setInviteBusy(true);
+    setInviteMessage(null);
+    try {
+      const response = await fetch("/api/admin/invites", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ email }),
+      });
+      const data = await response.json().catch(() => ({})) as { error?: string };
+      if (!response.ok) {
+        setInviteMessage({ text: data.error ?? t("adminSendFailed"), error: true });
+        return;
+      }
+      setInviteMessage({ text: t("adminInviteSent", { email: email.toLowerCase() }), error: false });
+      setInviteEmail("");
+      await Promise.all([load(), loadInvites()]);
+    } catch {
+      setInviteMessage({ text: t("networkRetry"), error: true });
+    } finally {
+      setInviteBusy(false);
+    }
+  }
+
+  async function generate() {
+    setGenerating(true);
+    setGenerateError("");
+    setCopied(false);
+    try {
+      const response = await fetch("/api/admin/invites/generic", { method: "POST" });
+      const data = await response.json().catch(() => ({})) as { code?: string; error?: string };
+      if (!response.ok || !data.code) {
+        setGenerateError(data.error ?? t("adminSendFailed"));
+        return;
+      }
+      setGenerated(data.code);
+      await loadInvites();
+    } catch {
+      setGenerateError(t("networkRetry"));
+    } finally {
+      setGenerating(false);
+    }
+  }
+
+  async function copyGenerated() {
+    if (!generated) return;
+    try {
+      await navigator.clipboard.writeText(generated);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1600);
+    } catch {
+      // Clipboard unavailable; the code is selectable on screen.
+    }
+  }
 
   async function invite(email: string) {
     setSending((current) => ({ ...current, [email]: true }));
@@ -69,9 +160,45 @@ export default function AdminPage() {
   return (
     <main className="admin-page">
       <header className="admin-header">
-        <h1>{t("waitlist")}</h1>
+        <h1>{t("adminTitle")}</h1>
         <a href="/">{t("backToFolio")}</a>
       </header>
+      <h2 className="admin-section">{t("adminInviteEmailTitle")}</h2>
+      <form className="admin-form" onSubmit={(event) => void inviteDirect(event)}>
+        <input
+          className="admin-input"
+          type="email"
+          required
+          value={inviteEmail}
+          placeholder={t("adminInviteEmailPlaceholder")}
+          onChange={(event) => setInviteEmail(event.target.value)}
+        />
+        <button className="admin-button" type="submit" disabled={inviteBusy || !inviteEmail.trim()}>
+          {inviteBusy ? t("sending") : t("adminSendInvite")}
+        </button>
+      </form>
+      {inviteMessage && <p className={inviteMessage.error ? "admin-note admin-error" : "admin-note"}>{inviteMessage.text}</p>}
+
+      <h2 className="admin-section">{t("adminGenerateTitle")}</h2>
+      <div className="admin-generate">
+        <button className="admin-button" disabled={generating} onClick={() => void generate()}>
+          {generating ? t("adminGenerating") : t("adminGenerate")}
+        </button>
+        {generateError && <p className="admin-note admin-error">{generateError}</p>}
+        {generated && (
+          <div className="admin-code">
+            <strong>{generated}</strong>
+            <button type="button" className="code-button" aria-label={t("adminCopyCode")} title={t("adminCopyCode")} onClick={() => void copyGenerated()}>
+              {copied ? "✓" : (
+                <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2" /><path d="M5 15V6a2 2 0 0 1 2-2h9" /></svg>
+              )}
+            </button>
+            <span>{t("adminGenerateNote")}</span>
+          </div>
+        )}
+      </div>
+
+      <h2 className="admin-section">{t("waitlist")}</h2>
       {state === "loading" && <p className="admin-empty">{t("loading")}</p>}
       {state === "error" && <p className="admin-empty">{t("adminLoadFailed")}</p>}
       {state === "ready" && entries.length === 0 && <p className="admin-empty">{t("adminEmpty")}</p>}
@@ -94,6 +221,23 @@ export default function AdminPage() {
                   {sending[entry.email] ? t("sending") : entry.status === "invited" ? t("adminResend") : t("adminSendInvite")}
                 </button>
               )}
+            </li>
+          ))}
+        </ul>
+      )}
+      <h2 className="admin-section">{t("adminHistoryTitle")}</h2>
+      {invites.length === 0 ? (
+        <p className="admin-empty admin-empty-compact">{t("adminHistoryEmpty")}</p>
+      ) : (
+        <ul className="admin-list">
+          {invites.map((invite) => (
+            <li key={invite.id} className="admin-row admin-row-compact">
+              <span className={`admin-badge ${invite.kind}`}>{t(invite.kind === "generic" ? "adminKindGeneric" : "adminKindEmail")}</span>
+              <div className="admin-main">
+                <strong>{invite.email ?? "—"}</strong>
+                <small>{t("adminCreatedAt", { date: new Date(invite.createdAt).toLocaleDateString(locale) })}</small>
+              </div>
+              <span className={`admin-badge status-${invite.status}`}>{t(INVITE_STATUS_LABEL[invite.status])}</span>
             </li>
           ))}
         </ul>
