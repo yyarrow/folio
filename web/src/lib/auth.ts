@@ -288,7 +288,12 @@ export async function recordInviteUser(inviteId: string, userId: string): Promis
 
 export async function releaseInvite(inviteId: string): Promise<void> {
   const sql = await database();
-  await sql`UPDATE folio_invites SET used_at = NULL, used_by = NULL WHERE id = ${inviteId}`;
+  // A generic code records its claimer's email on claim; clear it again so the code stays unbound.
+  await sql`
+    UPDATE folio_invites
+    SET used_at = NULL, used_by = NULL, email = CASE WHEN kind = 'generic' THEN NULL ELSE email END
+    WHERE id = ${inviteId}
+  `;
 }
 
 export async function createInviteForEmail(email: string): Promise<string> {
