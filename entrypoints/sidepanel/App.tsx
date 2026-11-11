@@ -1,4 +1,5 @@
 import { type FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { renderMarkdown } from "../../lib/markdown";
 import { downloadExport } from "../../lib/export";
 import { t } from "../../lib/i18n";
 import { listNotes, removeNote, saveNote } from "../../lib/db";
@@ -63,6 +64,8 @@ export default function App() {
   const [content, setContent] = useState("");
   const [context, setContext] = useState<PageContext>({});
   const [query, setQuery] = useState("");
+  const [tagFilter, setTagFilter] = useState<string | null>(null);
+  const [pendingDelete, setPendingDelete] = useState<Note | null>(null);
   const [editor, setEditor] = useState<EditorTarget | null>(null);
   const [noteDraft, setNoteDraft] = useState("");
   const [draftState, setDraftState] = useState<"saved" | "pending" | "empty">("saved");
@@ -75,6 +78,7 @@ export default function App() {
   const [syncMessage, setSyncMessage] = useState("");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const legacyDraftRef = useRef(false);
+  const pendingDeleteRef = useRef<{ note: Note; timer: number } | null>(null);
 
   const refreshNotes = useCallback(async () => setNotes(await listNotes()), []);
   const refreshContext = useCallback(async () => setContext(await readPageContext()), []);
@@ -167,8 +171,11 @@ export default function App() {
   }, [content, context, ready]);
 
   const visibleNotes = useMemo(
-    () => notes.filter((note) => matchesSearch(note, query)),
-    [notes, query],
+    () => notes.filter((note) =>
+      note.id !== pendingDelete?.id
+      && (!tagFilter || note.tags.includes(tagFilter))
+      && matchesSearch(note, query)),
+    [notes, query, tagFilter, pendingDelete],
   );
   const tags = useMemo(() => extractTags(content), [content]);
   const canSave = Boolean(content.trim() || context.selection);
@@ -267,13 +274,46 @@ export default function App() {
     return () => document.removeEventListener("visibilitychange", onHidden);
   }, []);
 
-  async function handleDelete(note: Note) {
-    if (!window.confirm(t("deleteConfirm"))) return;
+  async function commitDeletion(note: Note) {
     await removeNote(note.id);
-    if (editor?.kind === "note" && editor.id === note.id) setEditor(null);
     await refreshNotes();
     if (connected) await runSync();
   }
+  const commitDeletionRef = useRef(commitDeletion);
+  commitDeletionRef.current = commitDeletion;
+
+  function flushPendingDelete() {
+    const pending = pendingDeleteRef.current;
+    if (!pending) return;
+    window.clearTimeout(pending.timer);
+    pendingDeleteRef.current = null;
+    setPendingDelete(null);
+    void commitDeletionRef.current(pending.note);
+  }
+  const flushPendingDeleteRef = useRef(flushPendingDelete);
+  flushPendingDeleteRef.current = flushPendingDelete;
+
+  function handleDelete(note: Note) {
+    flushPendingDelete();
+    if (editor?.kind === "note" && editor.id === note.id) setEditor(null);
+    const timer = window.setTimeout(() => flushPendingDeleteRef.current(), 5000);
+    pendingDeleteRef.current = { note, timer };
+    setPendingDelete(note);
+  }
+
+  function undoDelete() {
+    const pending = pendingDeleteRef.current;
+    if (!pending) return;
+    window.clearTimeout(pending.timer);
+    pendingDeleteRef.current = null;
+    setPendingDelete(null);
+  }
+
+  useEffect(() => {
+    const onHidden = () => { if (document.visibilityState === "hidden") flushPendingDeleteRef.current(); };
+    document.addEventListener("visibilitychange", onHidden);
+    return () => document.removeEventListener("visibilitychange", onHidden);
+  }, []);
 
   async function handleConnect(event: FormEvent) {
     event.preventDefault();
@@ -415,6 +455,11 @@ export default function App() {
           <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder={t("searchPlaceholder")} />
           {query && <button onClick={() => setQuery("")} aria-label={t("clearSearch")}>×</button>}
         </label>
+        {tagFilter && (
+          <button type="button" className="tag-filter" onClick={() => setTagFilter(null)} aria-label={t("clearTagFilter")}>
+            #{tagFilter} <span aria-hidden="true">×</span>
+          </button>
+        )}
 
         <div className="note-list">
           {visibleNotes.map((note) => (
@@ -424,7 +469,8 @@ export default function App() {
                 role="button"
                 tabIndex={0}
                 aria-label={t("openNote")}
-                onClick={() => {
+                onClick={(event) => {
+                  if ((event.target as HTMLElement).closest("a, button")) return;
                   if (!window.getSelection()?.toString()) openEditor({ kind: "note", id: note.id });
                 }}
                 onKeyDown={(event) => {
@@ -434,9 +480,11 @@ export default function App() {
                   }
                 }}
               >
-                {note.content && <p>{note.content}</p>}
+                {note.content && <div className="note-md">{renderMarkdown(note.content, { onTagClick: setTagFilter })}</div>}
                 {note.selection && <blockquote>{note.selection}</blockquote>}
-                {note.tags.length > 0 && <div className="note-tags">{note.tags.map((tag) => <span key={tag}>#{tag}</span>)}</div>}
+                {note.tags.length > 0 && <div className="note-tags">{note.tags.map((tag) => (
+                  <button type="button" key={tag} onClick={(event) => { event.stopPropagation(); setTagFilter(tag); }}>#{tag}</button>
+                ))}</div>}
               </div>
               <footer>
                 <div className="note-meta">
@@ -449,7 +497,7 @@ export default function App() {
                 </div>
                 <div className="note-actions">
                   <button onClick={() => openEditor({ kind: "note", id: note.id })}>{t("edit")}</button>
-                  <button className="danger" onClick={() => void handleDelete(note)}>{t("delete")}</button>
+                  <button className="danger" onClick={() => handleDelete(note)}>{t("delete")}</button>
                 </div>
               </footer>
             </article>
@@ -458,12 +506,19 @@ export default function App() {
           {!visibleNotes.length && (
             <div className="empty-state">
               <FolioMark />
-              <strong>{query ? t("noMatchingNotes") : t("noNotes")}</strong>
-              <p>{query ? t("tryDifferentSearch") : t("emptyNotesDescription")}</p>
+              <strong>{query || tagFilter ? t("noMatchingNotes") : t("noNotes")}</strong>
+              <p>{query || tagFilter ? t("tryDifferentSearch") : t("emptyNotesDescription")}</p>
             </div>
           )}
         </div>
       </section>
+
+      {pendingDelete && (
+        <div className="undo-toast" role="status">
+          <span>{t("deletedToast")}</span>
+          <button type="button" onClick={undoDelete}>{t("undo")}</button>
+        </div>
+      )}
 
       {editor?.kind === "new" && (
         <NoteEditor
@@ -487,7 +542,7 @@ export default function App() {
           placeholder={t("composerPlaceholder")}
           onChange={setNoteDraft}
           onClose={closeEditor}
-          onDelete={() => void handleDelete(editingNote)}
+          onDelete={() => handleDelete(editingNote)}
         />
       )}
     </main>

@@ -191,10 +191,111 @@ button:not(:disabled):active { transform: scale(.97); }
   animation: fade-up var(--dur-sheet) var(--ease-out) both;
 }
 .note-card:hover { border-color: color-mix(in srgb, var(--accent-strong) 21%, transparent); box-shadow: var(--shadow-md); }
-.note-copy p { margin: 0; color: var(--text); font-family: var(--font-serif); font-size: var(--fs-md); font-optical-sizing: auto; line-height: 1.55; white-space: pre-wrap; overflow-wrap: anywhere; }
+.note-md {
+  color: var(--text);
+  font-family: var(--font-serif);
+  font-size: var(--fs-md);
+  font-optical-sizing: auto;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+}
+.note-md p, .note-md ul, .note-md ol, .note-md blockquote, .note-md pre { margin: 0 0 .5em; }
+.note-md > :last-child { margin-bottom: 0; }
+.note-md ul, .note-md ol { padding-left: 1.3em; }
+.note-md .md-h { font-family: var(--font-serif); font-weight: 600; }
+.note-md .md-h1 { font-size: 1.3em; }
+.note-md .md-h2 { font-size: 1.18em; }
+.note-md .md-h3 { font-size: 1.08em; }
+.note-md .md-h4, .note-md .md-h5, .note-md .md-h6 { font-size: 1em; }
+.note-md code {
+  border-radius: var(--radius-xs);
+  padding: 1px 4px;
+  background: var(--accent-soft);
+  font-family: var(--font-mono);
+  font-size: .88em;
+}
+.note-md pre {
+  overflow-x: auto;
+  border-radius: var(--radius-md);
+  padding: 10px 12px;
+  background: var(--surface-muted);
+  font-family: var(--font-mono);
+  white-space: pre;
+}
+.note-md pre code { background: transparent; padding: 0; font-size: inherit; }
+.note-md blockquote {
+  border-left: 2px solid var(--accent-line);
+  padding-left: 11px;
+  color: var(--text-3);
+}
+.note-md hr { border: 0; border-top: 1px solid var(--hairline); margin: .7em 0; }
+.note-md a { color: var(--accent); text-underline-offset: 2px; }
+.note-md .md-tag {
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: var(--accent);
+  font: inherit;
+  cursor: pointer;
+}
+.note-md .md-tag:hover { text-decoration: underline; }
 .note-copy blockquote { display: -webkit-box; margin: 8px 0 0; overflow: hidden; border-left: 2px solid var(--accent-line); padding-left: 9px; color: var(--text-3); font-family: var(--font-serif); font-size: var(--fs-xs); line-height: 1.5; white-space: pre-wrap; -webkit-box-orient: vertical; -webkit-line-clamp: 3; }
 .note-tags { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 9px; }
-.note-tags span { color: var(--accent); font-size: var(--fs-2xs); }
+.note-tags button {
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: var(--accent);
+  font: inherit;
+  font-size: var(--fs-2xs);
+  cursor: pointer;
+}
+.note-tags button:hover { text-decoration: underline; }
+.tag-filter {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: -2px 0 12px;
+  border: 1px solid var(--accent-line);
+  border-radius: var(--radius-full);
+  padding: 4px 10px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font: inherit;
+  font-size: var(--fs-xs);
+  cursor: pointer;
+}
+.undo-toast {
+  position: fixed;
+  bottom: 18px;
+  left: 0;
+  right: 0;
+  width: fit-content;
+  max-width: calc(100vw - 32px);
+  margin: 0 auto;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  border-radius: var(--radius-full);
+  padding: 10px 10px 10px 18px;
+  background: var(--ink);
+  color: var(--ink-on);
+  box-shadow: var(--shadow-popover);
+  font-size: var(--fs-sm);
+  animation: fade-up var(--dur-base) var(--ease-out);
+}
+.undo-toast button {
+  border: 0;
+  border-radius: var(--radius-full);
+  padding: 4px 10px;
+  background: transparent;
+  color: color-mix(in srgb, var(--ink-on) 72%, transparent);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+.undo-toast button:hover { color: var(--ink-on); }
 .note-card footer { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--hairline); }
 .note-meta { display: flex; flex: 1; min-width: 0; align-items: center; gap: 7px; color: var(--text-4); font-size: var(--fs-2xs); font-variant-numeric: tabular-nums; }
 .note-meta time { flex: none; }
