@@ -20,8 +20,15 @@
   </head>
   <body>
     <main>
-      <h1>Folio</h1>
-      <p>第一次打开需要联网。连接网络后再试一次，之后便可以离线记录。</p>
+      <h1 id="h">Folio</h1>
+      <p id="msg">第一次打开需要联网。连接网络后再试一次，之后便可以离线记录。</p>
     </main>
+    <script>
+      if (!/^zh/i.test(navigator.language || "")) {
+        document.documentElement.lang = "en";
+        document.title = "Folio · Offline";
+        document.getElementById("msg").textContent = "Folio needs a connection the first time you open it. Connect and try again, and you can capture notes offline from then on.";
+      }
+    </script>
   </body>
 </html>
