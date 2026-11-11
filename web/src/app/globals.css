@@ -1112,26 +1112,28 @@ button:not(:disabled):active { transform: scale(.97); }
 .admin-note.admin-error { color: var(--danger); }
 .admin-section { margin: 28px 0 10px; font-size: var(--fs-md); font-weight: var(--fw-semibold); }
 .admin-generate { display: grid; gap: 10px; justify-items: start; }
-.admin-code {
-  display: grid;
-  grid-template-columns: 1fr auto;
-  align-items: center;
-  gap: 4px 8px;
-  width: 100%;
-  padding: 12px 14px;
-  border-radius: var(--radius-lg);
-  background: var(--accent-soft);
-}
-.admin-code strong {
+.admin-generate .admin-note { max-width: 46ch; color: var(--text-3); line-height: 1.6; }
+.admin-invite-code {
   color: var(--accent);
   font-family: var(--font-mono);
-  font-size: 21px;
-  font-variant-numeric: tabular-nums;
-  letter-spacing: .13em;
-  overflow-wrap: anywhere;
+  font-size: var(--fs-lg);
+  font-weight: var(--fw-semibold);
+  letter-spacing: .08em;
   user-select: all;
 }
-.admin-code span { grid-column: 1 / -1; color: var(--text-3); font-size: var(--fs-2xs); }
+.admin-copy-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+.admin-copy {
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-full);
+  padding: 5px 11px;
+  background: var(--surface);
+  color: var(--text-2);
+  font-size: var(--fs-2xs);
+  cursor: pointer;
+  transition: background-color var(--dur-snap) var(--ease-snap), border-color var(--dur-snap) var(--ease-snap);
+}
+.admin-copy:hover { background: var(--hover); border-color: var(--focus-border); }
+.admin-row-new { border-color: var(--focus-border); box-shadow: 0 0 0 3px var(--focus-ring); animation: fade-up var(--dur-sheet) var(--ease-out); }
 .admin-empty-compact { padding: 20px 0; }
 .admin-row-compact { padding: 9px 12px; }
 .admin-badge.generic { background: var(--accent-soft); color: var(--accent-strong); }

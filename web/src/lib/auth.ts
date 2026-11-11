@@ -3,6 +3,7 @@ import "server-only";
 import { createHash, createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 import { cookies } from "next/headers";
 import { database, ensureSchema, hasDatabase, ownerEmail } from "./db";
+import { decryptInviteCodeWith, encryptInviteCodeWith } from "./invite-crypto";
 import { INVITE_TTL_MS, generateInviteCode, normalizeInviteCode } from "./invites";
 
 const COOKIE_NAME = "folio_session";
@@ -248,6 +249,14 @@ export async function deleteAccount(userId: string): Promise<void> {
   (await cookies()).delete(COOKIE_NAME);
 }
 
+export function encryptInviteCode(code: string): string {
+  return encryptInviteCodeWith(code, authSecret());
+}
+
+export function decryptInviteCode(payload: string | null): string | null {
+  return decryptInviteCodeWith(payload, authSecret());
+}
+
 export function inviteCodeHash(code: string): string {
   return secureDigest(`invite:${normalizeInviteCode(code)}`).toString("hex");
 }
@@ -303,7 +312,7 @@ export async function createInviteForEmail(email: string): Promise<string> {
   const id = `inv_${randomBytes(12).toString("hex")}`;
   const expiresAt = new Date(Date.now() + INVITE_TTL_MS);
   await sql`DELETE FROM folio_invites WHERE email = ${email} AND used_at IS NULL`;
-  await sql`INSERT INTO folio_invites (id, code_hash, email, kind, expires_at) VALUES (${id}, ${inviteCodeHash(code)}, ${email}, 'email', ${expiresAt})`;
+  await sql`INSERT INTO folio_invites (id, code_hash, code_enc, email, kind, expires_at) VALUES (${id}, ${inviteCodeHash(code)}, ${encryptInviteCode(code)}, ${email}, 'email', ${expiresAt})`;
   await sql`UPDATE folio_waitlist SET invited_at = now() WHERE email = ${email}`;
   return code;
 }
@@ -315,7 +324,7 @@ export async function createGenericInvite(): Promise<{ code: string; expiresAt: 
   const code = generateInviteCode();
   const id = `inv_${randomBytes(12).toString("hex")}`;
   const expiresAt = new Date(Date.now() + INVITE_TTL_MS);
-  await sql`INSERT INTO folio_invites (id, code_hash, email, kind, expires_at) VALUES (${id}, ${inviteCodeHash(code)}, NULL, 'generic', ${expiresAt})`;
+  await sql`INSERT INTO folio_invites (id, code_hash, code_enc, email, kind, expires_at) VALUES (${id}, ${inviteCodeHash(code)}, ${encryptInviteCode(code)}, NULL, 'generic', ${expiresAt})`;
   return { code, expiresAt: expiresAt.toISOString() };
 }
 

@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { decryptInviteCodeWith, encryptInviteCodeWith } from "@/lib/invite-crypto";
 import {
   INVITE_ALPHABET,
   WAITLIST_NOTE_MAX,
@@ -53,5 +54,21 @@ describe("invite status", () => {
   test("null kind is an email invite", () => {
     expect(inviteKind(null)).toBe("email");
     expect(inviteKind("generic")).toBe("generic");
+  });
+});
+
+describe("invite code display encryption", () => {
+  test("round-trips with the same secret", () => {
+    const payload = encryptInviteCodeWith("K7M2Q-X9PWT", "secret-a");
+    expect(payload).not.toContain("K7M2Q");
+    expect(decryptInviteCodeWith(payload, "secret-a")).toBe("K7M2Q-X9PWT");
+  });
+  test("fails closed with another secret, tampering, or no payload", () => {
+    const payload = encryptInviteCodeWith("K7M2Q-X9PWT", "secret-a");
+    expect(decryptInviteCodeWith(payload, "secret-b")).toBeNull();
+    const bytes = Buffer.from(payload, "base64");
+    bytes[bytes.length - 1] ^= 1;
+    expect(decryptInviteCodeWith(bytes.toString("base64"), "secret-a")).toBeNull();
+    expect(decryptInviteCodeWith(null, "secret-a")).toBeNull();
   });
 });
