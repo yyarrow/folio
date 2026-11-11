@@ -2,7 +2,7 @@ import { randomBytes } from "node:crypto";
 import { NextResponse } from "next/server";
 import { langFromRequest } from "@/lib/i18n";
 import { requestT } from "@/lib/server-messages";
-import { createInviteForEmail, findUserByEmail, isEmail, isSameOrigin, normalizeEmail, requireOwner } from "@/lib/auth";
+import { createInviteForEmail, decryptInviteCode, findUserByEmail, isEmail, isSameOrigin, normalizeEmail, requireOwner } from "@/lib/auth";
 import { database, ensureSchema } from "@/lib/db";
 import { inviteKind, inviteStatus } from "@/lib/invites";
 import { assertEmailConfigured, sendInviteEmail } from "@/lib/email";
@@ -48,20 +48,25 @@ export async function GET(request: Request) {
   await ensureSchema();
   const sql = await database();
   const rows = await sql`
-    SELECT id, email, kind, created_at, expires_at, used_at
+    SELECT id, email, kind, code_enc, created_at, expires_at, used_at
     FROM folio_invites
     ORDER BY created_at DESC
     LIMIT 50
-  ` as { id: string; email: string | null; kind: string | null; created_at: string; expires_at: string; used_at: string | null }[];
+  ` as { id: string; email: string | null; kind: string | null; code_enc: string | null; created_at: string; expires_at: string; used_at: string | null }[];
   return NextResponse.json({
-    invites: rows.map((row) => ({
+    invites: rows.map((row) => {
+      const status = inviteStatus({ usedAt: row.used_at, expiresAt: row.expires_at });
+      return {
       id: row.id,
+      // Only unused codes are worth showing again.
+      code: status === "unused" ? decryptInviteCode(row.code_enc) : null,
       email: row.email,
       createdAt: new Date(row.created_at).toISOString(),
       expiresAt: new Date(row.expires_at).toISOString(),
       usedAt: row.used_at ? new Date(row.used_at).toISOString() : null,
-      status: inviteStatus({ usedAt: row.used_at, expiresAt: row.expires_at }),
+      status,
       kind: inviteKind(row.kind),
-    })),
+      };
+    }),
   });
 }

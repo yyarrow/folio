@@ -15,6 +15,7 @@ interface Entry {
 
 interface InviteRow {
   id: string;
+  code: string | null;
   email: string | null;
   createdAt: string;
   expiresAt: string;
@@ -42,7 +43,7 @@ export default function AdminPage() {
   const [generating, setGenerating] = useState(false);
   const [generated, setGenerated] = useState<string | null>(null);
   const [generateError, setGenerateError] = useState("");
-  const [copied, setCopied] = useState(false);
+  const [copied, setCopied] = useState<string | null>(null);
 
   const loadInvites = useCallback(async () => {
     try {
@@ -103,7 +104,6 @@ export default function AdminPage() {
   async function generate() {
     setGenerating(true);
     setGenerateError("");
-    setCopied(false);
     try {
       const response = await fetch("/api/admin/invites/generic", { method: "POST" });
       const data = await response.json().catch(() => ({})) as { code?: string; error?: string };
@@ -120,12 +120,15 @@ export default function AdminPage() {
     }
   }
 
-  async function copyGenerated() {
-    if (!generated) return;
+  function inviteLink(code: string): string {
+    return `${window.location.origin}/?invite=${encodeURIComponent(code)}`;
+  }
+
+  async function copy(text: string, key: string) {
     try {
-      await navigator.clipboard.writeText(generated);
-      setCopied(true);
-      window.setTimeout(() => setCopied(false), 1600);
+      await navigator.clipboard.writeText(text);
+      setCopied(key);
+      window.setTimeout(() => setCopied((current) => (current === key ? null : current)), 1600);
     } catch {
       // Clipboard unavailable; the code is selectable on screen.
     }
@@ -184,19 +187,42 @@ export default function AdminPage() {
         <button className="admin-button" disabled={generating} onClick={() => void generate()}>
           {generating ? t("adminGenerating") : t("adminGenerate")}
         </button>
+        <p className="admin-note">{t("adminGenerateNote")}</p>
         {generateError && <p className="admin-note admin-error">{generateError}</p>}
-        {generated && (
-          <div className="admin-code">
-            <strong>{generated}</strong>
-            <button type="button" className="code-button" aria-label={t("adminCopyCode")} title={t("adminCopyCode")} onClick={() => void copyGenerated()}>
-              {copied ? "✓" : (
-                <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2" /><path d="M5 15V6a2 2 0 0 1 2-2h9" /></svg>
-              )}
-            </button>
-            <span>{t("adminGenerateNote")}</span>
-          </div>
-        )}
       </div>
+
+      <h2 className="admin-section">{t("adminHistoryTitle")}</h2>
+      {invites.length === 0 ? (
+        <p className="admin-empty admin-empty-compact">{t("adminHistoryEmpty")}</p>
+      ) : (
+        <ul className="admin-list">
+          {invites.map((invite) => (
+            <li key={invite.id} className={`admin-row admin-row-compact${invite.code && invite.code === generated ? " admin-row-new" : ""}`}>
+              <span className={`admin-badge ${invite.kind}`}>{t(invite.kind === "generic" ? "adminKindGeneric" : "adminKindEmail")}</span>
+              <div className="admin-main">
+                {invite.code ? (
+                  <code className="admin-invite-code">{invite.code}</code>
+                ) : invite.status === "unused" ? (
+                  <small>{t("adminLegacyCode")}</small>
+                ) : null}
+                <strong>{invite.email ?? (invite.kind === "generic" ? t("adminAnyEmail") : "—")}</strong>
+                <small>{t("adminCreatedAt", { date: new Date(invite.createdAt).toLocaleDateString(locale) })}</small>
+              </div>
+              <span className={`admin-badge status-${invite.status}`}>{t(INVITE_STATUS_LABEL[invite.status])}</span>
+              {invite.code && (
+                <div className="admin-copy-actions">
+                  <button type="button" className="admin-copy" onClick={() => void copy(invite.code!, `${invite.id}:code`)}>
+                    {copied === `${invite.id}:code` ? t("adminCopied") : t("adminCopyCode")}
+                  </button>
+                  <button type="button" className="admin-copy" onClick={() => void copy(inviteLink(invite.code!), `${invite.id}:link`)}>
+                    {copied === `${invite.id}:link` ? t("adminCopied") : t("adminCopyLink")}
+                  </button>
+                </div>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
 
       <h2 className="admin-section">{t("waitlist")}</h2>
       {state === "loading" && <p className="admin-empty">{t("loading")}</p>}
@@ -221,23 +247,6 @@ export default function AdminPage() {
                   {sending[entry.email] ? t("sending") : entry.status === "invited" ? t("adminResend") : t("adminSendInvite")}
                 </button>
               )}
-            </li>
-          ))}
-        </ul>
-      )}
-      <h2 className="admin-section">{t("adminHistoryTitle")}</h2>
-      {invites.length === 0 ? (
-        <p className="admin-empty admin-empty-compact">{t("adminHistoryEmpty")}</p>
-      ) : (
-        <ul className="admin-list">
-          {invites.map((invite) => (
-            <li key={invite.id} className="admin-row admin-row-compact">
-              <span className={`admin-badge ${invite.kind}`}>{t(invite.kind === "generic" ? "adminKindGeneric" : "adminKindEmail")}</span>
-              <div className="admin-main">
-                <strong>{invite.email ?? "—"}</strong>
-                <small>{t("adminCreatedAt", { date: new Date(invite.createdAt).toLocaleDateString(locale) })}</small>
-              </div>
-              <span className={`admin-badge status-${invite.status}`}>{t(INVITE_STATUS_LABEL[invite.status])}</span>
             </li>
           ))}
         </ul>

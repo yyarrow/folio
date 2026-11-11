@@ -132,6 +132,7 @@ export async function ensureSchema(): Promise<void> {
   `;
   await sql`ALTER TABLE folio_invites ALTER COLUMN email DROP NOT NULL`;
   await sql`ALTER TABLE folio_invites ADD COLUMN IF NOT EXISTS kind text`;
+  await sql`ALTER TABLE folio_invites ADD COLUMN IF NOT EXISTS code_enc text`;
   await sql`CREATE INDEX IF NOT EXISTS folio_invites_email_idx ON folio_invites (email)`;
   await sql`CREATE INDEX IF NOT EXISTS folio_notes_user_updated_idx ON folio_notes (user_id, updated_at DESC)`;
   await sql`CREATE INDEX IF NOT EXISTS folio_sessions_expiry_idx ON folio_sessions (expires_at)`;
