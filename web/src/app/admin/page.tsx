@@ -160,9 +160,10 @@ export default function AdminPage() {
   return (
     <main className="admin-page">
       <header className="admin-header">
-        <h1>{t("adminInviteEmailTitle")}</h1>
+        <h1>{t("adminTitle")}</h1>
         <a href="/">{t("backToFolio")}</a>
       </header>
+      <h2 className="admin-section">{t("adminInviteEmailTitle")}</h2>
       <form className="admin-form" onSubmit={(event) => void inviteDirect(event)}>
         <input
           className="admin-input"
