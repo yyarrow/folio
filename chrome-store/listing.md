@@ -27,11 +27,12 @@ Open Folio from the Chrome toolbar or press Command+Shift+Y (Ctrl+Shift+Y on Win
 What you can do:
 
 - Capture notes, selected passages, and source links
-- Organize ideas with inline #tags
-- Search, edit, and delete notes from the side panel
+- Write in Markdown and open any note in a fullscreen editor that saves as you type
+- Organize ideas with inline #tags, and tap a tag to filter your notes
+- Search, edit, and delete notes, with undo for accidental deletes
 - Export your complete library as Markdown or JSON
 - Keep everything on your device by default
-- Optionally connect Folio Cloud for encrypted cross-device sync
+- Optionally connect Folio Cloud for cross-device sync with a one-time connection code from folio.warmbeing.com
 
 Folio does not read complete web pages or monitor browsing in the background. It accesses the current tab only when you open the extension. Cloud sync is optional and begins only after you explicitly connect an account.
 
@@ -57,11 +58,12 @@ Folio 常驻在 Chrome 侧边栏。点击工具栏图标，或按 Command+Shift+
 
 - 一边阅读，一边记录，不离开当前网页
 - 把选中文本、页面标题和来源链接一起保存
-- 用行内 #标签 整理灵感
-- 搜索、编辑和删除过去的笔记
+- 支持 Markdown，点开任意笔记即可全屏编辑，边写边自动保存
+- 用行内 #标签 整理灵感，点一下标签就能筛选
+- 搜索、编辑和删除过去的笔记，误删可以撤销
 - 将全部内容导出为 Markdown 或 JSON
 
-笔记默认只保存在你的设备上。需要跨设备使用时，可以选择连接 Folio Cloud；云端同步不会自动开启。
+笔记默认只保存在你的设备上。需要跨设备使用时，可以在 folio.warmbeing.com 登录并生成连接码，连接 Folio Cloud；云端同步不会自动开启。
 
 Folio 不会读取完整网页，也不会在后台追踪浏览记录。它只会在你主动打开侧边栏时访问当前标签页，并且只读取你主动选中的文字。
 
