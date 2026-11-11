@@ -2,7 +2,8 @@ import "server-only";
 
 import { createHash, createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 import { cookies } from "next/headers";
-import { database, ensureSchema, hasDatabase } from "./db";
+import { database, ensureSchema, hasDatabase, ownerEmail } from "./db";
+import { INVITE_TTL_MS, generateInviteCode, normalizeInviteCode } from "./invites";
 
 const COOKIE_NAME = "folio_session";
 const SESSION_TTL_MS = 90 * 24 * 60 * 60 * 1000;
@@ -34,7 +35,7 @@ function hashToken(value: string): string {
   return createHash("sha256").update(value).digest("hex");
 }
 
-function secureDigest(value: string): Buffer {
+export function secureDigest(value: string): Buffer {
   return createHmac("sha256", authSecret()).update(value).digest();
 }
 
@@ -245,4 +246,70 @@ export async function deleteAccount(userId: string): Promise<void> {
     transaction`DELETE FROM folio_users WHERE id = ${userId}`,
   ]);
   (await cookies()).delete(COOKIE_NAME);
+}
+
+export function inviteCodeHash(code: string): string {
+  return secureDigest(`invite:${normalizeInviteCode(code)}`).toString("hex");
+}
+
+export type InviteCheck = "valid" | "other-email" | "invalid";
+
+/** Read-only check used before creating a user. */
+export async function checkOneTimeInvite(code: string, email: string): Promise<InviteCheck> {
+  if (!normalizeInviteCode(code)) return "invalid";
+  await ensureSchema();
+  const sql = await database();
+  const rows = await sql`
+    SELECT email FROM folio_invites
+    WHERE code_hash = ${inviteCodeHash(code)} AND used_at IS NULL AND expires_at > now()
+    LIMIT 1
+  ` as { email: string }[];
+  if (!rows[0]) return "invalid";
+  return rows[0].email === email ? "valid" : "other-email";
+}
+
+/** Atomically claim a one-time invite for an email. Returns the invite id, or null. */
+export async function claimOneTimeInvite(code: string, email: string): Promise<string | null> {
+  await ensureSchema();
+  const sql = await database();
+  const rows = await sql`
+    UPDATE folio_invites
+    SET used_at = now()
+    WHERE code_hash = ${inviteCodeHash(code)} AND email = ${email} AND used_at IS NULL AND expires_at > now()
+    RETURNING id
+  ` as { id: string }[];
+  return rows[0]?.id ?? null;
+}
+
+export async function recordInviteUser(inviteId: string, userId: string): Promise<void> {
+  const sql = await database();
+  await sql`UPDATE folio_invites SET used_by = ${userId} WHERE id = ${inviteId}`;
+}
+
+export async function releaseInvite(inviteId: string): Promise<void> {
+  const sql = await database();
+  await sql`UPDATE folio_invites SET used_at = NULL, used_by = NULL WHERE id = ${inviteId}`;
+}
+
+export async function createInviteForEmail(email: string): Promise<string> {
+  await ensureSchema();
+  const sql = await database();
+  const code = generateInviteCode();
+  const id = `inv_${randomBytes(12).toString("hex")}`;
+  const expiresAt = new Date(Date.now() + INVITE_TTL_MS);
+  await sql`DELETE FROM folio_invites WHERE email = ${email} AND used_at IS NULL`;
+  await sql`INSERT INTO folio_invites (id, code_hash, email, expires_at) VALUES (${id}, ${inviteCodeHash(code)}, ${email}, ${expiresAt})`;
+  await sql`UPDATE folio_waitlist SET invited_at = now() WHERE email = ${email}`;
+  return code;
+}
+
+export async function requireOwner(request: Request): Promise<AuthenticatedUser | Response> {
+  const user = await authenticateRequest(request);
+  if (!user || user.email.toLowerCase() !== ownerEmail()) {
+    return new Response(JSON.stringify({ error: "Not found" }), {
+      status: 404,
+      headers: { "content-type": "application/json" },
+    });
+  }
+  return user;
 }

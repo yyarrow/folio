@@ -110,6 +110,27 @@ export async function ensureSchema(): Promise<void> {
       expires_at timestamptz NOT NULL
     )
   `;
+  await sql`
+    CREATE TABLE IF NOT EXISTS folio_waitlist (
+      id text PRIMARY KEY,
+      email text NOT NULL UNIQUE,
+      note text,
+      created_at timestamptz NOT NULL DEFAULT now(),
+      invited_at timestamptz
+    )
+  `;
+  await sql`
+    CREATE TABLE IF NOT EXISTS folio_invites (
+      id text PRIMARY KEY,
+      code_hash text NOT NULL UNIQUE,
+      email text NOT NULL,
+      created_at timestamptz NOT NULL DEFAULT now(),
+      expires_at timestamptz NOT NULL,
+      used_at timestamptz,
+      used_by text REFERENCES folio_users(id) ON DELETE SET NULL
+    )
+  `;
+  await sql`CREATE INDEX IF NOT EXISTS folio_invites_email_idx ON folio_invites (email)`;
   await sql`CREATE INDEX IF NOT EXISTS folio_notes_user_updated_idx ON folio_notes (user_id, updated_at DESC)`;
   await sql`CREATE INDEX IF NOT EXISTS folio_sessions_expiry_idx ON folio_sessions (expires_at)`;
   await sql`CREATE INDEX IF NOT EXISTS folio_devices_user_idx ON folio_devices (user_id)`;
