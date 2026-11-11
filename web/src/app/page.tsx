@@ -628,7 +628,9 @@ export default function Home() {
                     />
                     <input
                       id="invite-code"
-                      type="password"
+                      type="text"
+                      autoCapitalize="characters"
+                      spellCheck={false}
                       value={inviteCode}
                       onChange={(event) => setInviteCode(event.target.value)}
                       placeholder="邀请码 · 已有账号可留空"
