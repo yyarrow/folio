@@ -44,10 +44,10 @@ export function displayDomain(url?: string): string {
   }
 }
 
-export function formatNoteDate(iso: string, now = new Date()): string {
+export function formatNoteDate(iso: string, now = new Date(), locale = "zh-CN"): string {
   const date = new Date(iso);
   const sameDay = date.toDateString() === now.toDateString();
-  return new Intl.DateTimeFormat("zh-CN", {
+  return new Intl.DateTimeFormat(locale, {
     ...(sameDay ? {} : { month: "numeric", day: "numeric" }),
     hour: "2-digit",
     minute: "2-digit",
