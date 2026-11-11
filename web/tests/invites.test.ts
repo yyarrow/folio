@@ -40,3 +40,18 @@ describe("waitlist note", () => {
     expect(parseWaitlistNote("x".repeat(500))).toHaveLength(WAITLIST_NOTE_MAX);
   });
 });
+
+import { inviteKind, inviteStatus } from "../src/lib/invites";
+
+describe("invite status", () => {
+  const now = new Date("2026-01-10T00:00:00Z");
+  test("derives unused / used / expired", () => {
+    expect(inviteStatus({ usedAt: null, expiresAt: "2026-01-11T00:00:00Z" }, now)).toBe("unused");
+    expect(inviteStatus({ usedAt: null, expiresAt: "2026-01-09T00:00:00Z" }, now)).toBe("expired");
+    expect(inviteStatus({ usedAt: "2026-01-05T00:00:00Z", expiresAt: "2026-01-09T00:00:00Z" }, now)).toBe("used");
+  });
+  test("null kind is an email invite", () => {
+    expect(inviteKind(null)).toBe("email");
+    expect(inviteKind("generic")).toBe("generic");
+  });
+});

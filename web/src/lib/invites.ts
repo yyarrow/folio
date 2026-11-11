@@ -26,3 +26,16 @@ export function parseWaitlistNote(value: unknown): string | null {
   const trimmed = value.trim().slice(0, WAITLIST_NOTE_MAX);
   return trimmed || null;
 }
+
+export type InviteStatus = "unused" | "used" | "expired";
+export type InviteKind = "generic" | "email";
+
+export function inviteStatus(invite: { usedAt: Date | string | null; expiresAt: Date | string }, now: Date = new Date()): InviteStatus {
+  if (invite.usedAt) return "used";
+  return new Date(invite.expiresAt).getTime() > now.getTime() ? "unused" : "expired";
+}
+
+/** Rows created before the kind column existed (NULL) are email invites. */
+export function inviteKind(kind: string | null | undefined): InviteKind {
+  return kind === "generic" ? "generic" : "email";
+}
