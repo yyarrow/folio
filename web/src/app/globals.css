@@ -1094,3 +1094,13 @@ button:not(:disabled):active { transform: scale(.97); }
   .admin-row { flex-wrap: wrap; }
   .admin-main { flex-basis: 100%; }
 }
+
+.connect-hint {
+  margin: 6px 7px 0;
+  border-radius: var(--radius-md);
+  padding: 9px 10px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: var(--fs-xs);
+  line-height: 1.5;
+}

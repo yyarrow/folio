@@ -21,6 +21,7 @@ import type { Note, PageContext } from "../../lib/types";
 import NoteEditor from "./NoteEditor";
 
 const MAX_SELECTION_LENGTH = 12_000;
+const CONNECT_PAGE_URL = "https://folio.warmbeing.com/?connect=extension";
 type SyncStatus = "local" | "syncing" | "synced" | "offline" | "error";
 type EditorTarget = { kind: "new" } | { kind: "note"; id: string };
 
@@ -387,6 +388,7 @@ export default function App() {
                   <button className="connect-button" disabled={!deviceCode.trim() || syncStatus === "syncing"}>
                     {syncStatus === "syncing" ? t("connecting") : t("connectAndSync")}
                   </button>
+                  <a className="connect-help" href={CONNECT_PAGE_URL} target="_blank" rel="noreferrer">{t("getDeviceCode")}</a>
                 </form>
               )}
               <div className="menu-divider" />

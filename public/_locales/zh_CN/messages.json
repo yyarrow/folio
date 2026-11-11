@@ -56,5 +56,6 @@
   "editorCount": { "message": "$1 字" },
   "editorTextLabel": { "message": "笔记内容" },
   "openNote": { "message": "打开并编辑笔记" },
-  "fullscreenEdit": { "message": "全屏编辑" }
+  "fullscreenEdit": { "message": "全屏编辑" },
+  "getDeviceCode": { "message": "还没有连接码？去网页登录并获取 ↗" }
 }

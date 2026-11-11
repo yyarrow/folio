@@ -56,5 +56,6 @@
   "editorCount": { "message": "$1 chars" },
   "editorTextLabel": { "message": "Note text" },
   "openNote": { "message": "Open and edit note" },
-  "fullscreenEdit": { "message": "Fullscreen edit" }
+  "fullscreenEdit": { "message": "Fullscreen edit" },
+  "getDeviceCode": { "message": "No code yet? Sign in on the web to get one ↗" }
 }

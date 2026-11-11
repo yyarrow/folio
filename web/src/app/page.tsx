@@ -33,6 +33,7 @@ type EditorTarget = { kind: "new" } | { kind: "note"; id: string };
 type DraftState = "saved" | "pending" | "empty";
 type CurrentUser = { id: string; email: string };
 
+const CONNECT_INTENT_KEY = "folio-connect-extension";
 const EXTENSION_DOWNLOAD_URL = "https://github.com/yyarrow/folio/releases/latest/download/folio-extension.zip";
 
 interface InstallPromptEvent extends Event {
@@ -73,6 +74,7 @@ export default function Home() {
   const [submittingWaitlist, setSubmittingWaitlist] = useState(false);
   const [waitlistDone, setWaitlistDone] = useState(false);
   const [showAccountMenu, setShowAccountMenu] = useState(false);
+  const [connectIntent, setConnectIntent] = useState(false);
   const [deviceCode, setDeviceCode] = useState("");
   const [creatingDeviceCode, setCreatingDeviceCode] = useState(false);
   const [message, setMessage] = useState("");
@@ -387,6 +389,33 @@ export default function Home() {
     window.history.replaceState(window.history.state, "", url.pathname + url.search + url.hash);
   }, []);
 
+  // The extension links here with ?connect=extension. Remember the intent across the
+  // email sign-in round trip, then generate a device code once signed in.
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    if (url.searchParams.get("connect") === "extension") {
+      try { localStorage.setItem(CONNECT_INTENT_KEY, "1"); } catch { /* storage unavailable */ }
+      url.searchParams.delete("connect");
+      window.history.replaceState(window.history.state, "", url.pathname + url.search + url.hash);
+    }
+    let pending = false;
+    try { pending = localStorage.getItem(CONNECT_INTENT_KEY) === "1"; } catch { /* storage unavailable */ }
+    if (pending) {
+      setConnectIntent(true);
+      setShowAccountMenu(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!connectIntent || session !== "signed-in") return;
+    try { localStorage.removeItem(CONNECT_INTENT_KEY); } catch { /* storage unavailable */ }
+    setConnectIntent(false);
+    setShowAccountMenu(true);
+    void handleCreateDeviceCode();
+    // handleCreateDeviceCode only reads state that is stable at this point.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [connectIntent, session]);
+
   useEffect(() => {
     const onPopState = () => closeEditorRef.current(true);
     window.addEventListener("popstate", onPopState);
@@ -616,6 +645,9 @@ export default function Home() {
                     <strong>Folio Local</strong>
                     <span>无需账号，笔记仅保存在这台设备。</span>
                   </div>
+                  {connectIntent && (
+                    <p className="connect-hint" role="status">登录 Folio Cloud 后，会自动生成浏览器插件的连接码。</p>
+                  )}
                   <form className="account-login" onSubmit={handleLogin}>
                     <label htmlFor="email">连接 Folio Cloud</label>
                     <input

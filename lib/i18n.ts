@@ -57,6 +57,7 @@ export const messageKeys = [
   "editorTextLabel",
   "openNote",
   "fullscreenEdit",
+  "getDeviceCode",
 ] as const;
 
 export type MessageKey = (typeof messageKeys)[number];
