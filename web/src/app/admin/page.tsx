@@ -38,6 +38,7 @@ export default function AdminPage() {
 
   const [invites, setInvites] = useState<InviteRow[]>([]);
   const [inviteEmail, setInviteEmail] = useState("");
+  const [inviteNote, setInviteNote] = useState(() => t("adminInviteMessageDefault"));
   const [inviteBusy, setInviteBusy] = useState(false);
   const [inviteMessage, setInviteMessage] = useState<{ text: string; error: boolean } | null>(null);
   const [generating, setGenerating] = useState(false);
@@ -84,7 +85,7 @@ export default function AdminPage() {
       const response = await fetch("/api/admin/invites", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ email }),
+        body: JSON.stringify({ email, message: inviteNote }),
       });
       const data = await response.json().catch(() => ({})) as { error?: string };
       if (!response.ok) {
@@ -120,8 +121,12 @@ export default function AdminPage() {
     }
   }
 
-  function inviteLink(code: string): string {
-    return `${window.location.origin}/?invite=${encodeURIComponent(code)}`;
+  // Email invites sign the recipient straight in; generic codes still need an email.
+  function inviteLink(invite: InviteRow & { code: string }): string {
+    const code = encodeURIComponent(invite.code);
+    return invite.kind === "email"
+      ? `${window.location.origin}/api/auth/accept-invite?code=${code}`
+      : `${window.location.origin}/?invite=${code}`;
   }
 
   async function copy(text: string, key: string) {
@@ -167,7 +172,7 @@ export default function AdminPage() {
         <a href="/">{t("backToFolio")}</a>
       </header>
       <h2 className="admin-section">{t("adminInviteEmailTitle")}</h2>
-      <form className="admin-form" onSubmit={(event) => void inviteDirect(event)}>
+      <form className="admin-invite-form" onSubmit={(event) => void inviteDirect(event)}>
         <input
           className="admin-input"
           type="email"
@@ -176,6 +181,23 @@ export default function AdminPage() {
           placeholder={t("adminInviteEmailPlaceholder")}
           onChange={(event) => setInviteEmail(event.target.value)}
         />
+        <div className="admin-message-label">
+          <label htmlFor="invite-message">{t("adminInviteMessageLabel")}</label>
+          {inviteNote !== t("adminInviteMessageDefault") && (
+            <button type="button" className="admin-link-button" onClick={() => setInviteNote(t("adminInviteMessageDefault"))}>
+              {t("adminInviteMessageReset")}
+            </button>
+          )}
+        </div>
+        <textarea
+          id="invite-message"
+          className="admin-textarea"
+          value={inviteNote}
+          maxLength={2000}
+          rows={7}
+          onChange={(event) => setInviteNote(event.target.value)}
+        />
+        <p className="admin-note admin-hint">{t("adminInviteMessageHint")}</p>
         <button className="admin-button" type="submit" disabled={inviteBusy || !inviteEmail.trim()}>
           {inviteBusy ? t("sending") : t("adminSendInvite")}
         </button>
@@ -214,7 +236,7 @@ export default function AdminPage() {
                   <button type="button" className="admin-copy" onClick={() => void copy(invite.code!, `${invite.id}:code`)}>
                     {copied === `${invite.id}:code` ? t("adminCopied") : t("adminCopyCode")}
                   </button>
-                  <button type="button" className="admin-copy" onClick={() => void copy(inviteLink(invite.code!), `${invite.id}:link`)}>
+                  <button type="button" className="admin-copy" onClick={() => void copy(inviteLink({ ...invite, code: invite.code! }), `${invite.id}:link`)}>
                     {copied === `${invite.id}:link` ? t("adminCopied") : t("adminCopyLink")}
                   </button>
                 </div>

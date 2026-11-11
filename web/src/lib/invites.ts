@@ -39,3 +39,12 @@ export function inviteStatus(invite: { usedAt: Date | string | null; expiresAt: 
 export function inviteKind(kind: string | null | undefined): InviteKind {
   return kind === "generic" ? "generic" : "email";
 }
+
+export const INVITE_MESSAGE_MAX = 2000;
+
+/** Personal note the owner adds to an invite email: plain text, trimmed, capped; empty means none. */
+export function parseInviteMessage(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const trimmed = value.replace(/\r\n?/gu, "\n").trim().slice(0, INVITE_MESSAGE_MAX);
+  return trimmed || null;
+}

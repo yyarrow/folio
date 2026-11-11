@@ -53,12 +53,29 @@ function escapeHtml(value: string): string {
   return value.replace(/&/gu, "&amp;").replace(/</gu, "&lt;").replace(/>/gu, "&gt;").replace(/"/gu, "&quot;").replace(/'/gu, "&#39;");
 }
 
-export async function sendInviteEmail(email: string, code: string, lang: Lang): Promise<string | undefined> {
-  const url = `${appUrl()}/?invite=${encodeURIComponent(code)}`;
+// Plain text only: escape everything, keep paragraphs and line breaks.
+function personalMessageHtml(message?: string | null): string {
+  if (!message) return "";
+  return message
+    .split(/\n{2,}/u)
+    .map((paragraph) => `<p>${escapeHtml(paragraph).replace(/\n/gu, "<br>")}</p>`)
+    .join("")
+    + `<hr style="border:0;border-top:1px solid #e5e0d6;margin:20px 0">`;
+}
+
+export async function sendInviteEmail(email: string, code: string, lang: Lang, message?: string | null): Promise<string | undefined> {
+  // Receiving this email proves ownership of the address, so the link signs the
+  // recipient straight in; the code below is a manual fallback.
+  const url = `${appUrl()}/api/auth/accept-invite?code=${encodeURIComponent(code)}`;
   await deliver(
     email,
     serverT(lang, "email.invite.subject"),
-    `<p>${serverT(lang, "email.invite.intro")}</p><p style="font-size:24px;font-weight:600;letter-spacing:2px;font-family:monospace">${escapeHtml(code)}</p><p><a href="${escapeHtml(url)}" style="display:inline-block;padding:10px 18px;border-radius:8px;background:#111;color:#fff;text-decoration:none">${serverT(lang, "email.invite.cta")}</a></p><p>${escapeHtml(serverT(lang, "email.invite.note", { email }))}</p>`,
+    personalMessageHtml(message)
+      + `<p>${escapeHtml(serverT(lang, "email.invite.intro", { email }))}</p>`
+      + `<p><a href="${escapeHtml(url)}" style="display:inline-block;padding:12px 22px;border-radius:8px;background:#111;color:#fff;font-weight:600;text-decoration:none">${serverT(lang, "email.invite.cta")}</a></p>`
+      + `<p style="color:#666">${serverT(lang, "email.invite.codeNote")}</p>`
+      + `<p style="font-size:18px;font-weight:600;letter-spacing:2px;font-family:monospace">${escapeHtml(code)}</p>`
+      + `<p style="color:#666">${serverT(lang, "email.invite.note")}</p>`,
   );
   return process.env.NODE_ENV === "production" ? undefined : url;
 }

@@ -318,6 +318,50 @@ export async function createInviteForEmail(email: string): Promise<string> {
 }
 
 /** Create an unbound invite code that works for any email. Does not touch other codes. */
+export type AcceptInviteResult =
+  | { status: "ok"; userId: string }
+  | { status: "existing" }
+  | { status: "invalid" };
+
+/**
+ * Accept an emailed invite link. Receiving the email proves ownership of the address,
+ * so this creates the account and lets the caller sign it in directly. Only email-bound
+ * invites qualify, and only for addresses without an account, so an old invite email
+ * never becomes a standing sign-in link.
+ */
+export async function acceptEmailInvite(code: string): Promise<AcceptInviteResult> {
+  if (!normalizeInviteCode(code)) return { status: "invalid" };
+  await ensureSchema();
+  const sql = await database();
+  const rows = await sql`
+    SELECT id, email FROM folio_invites
+    WHERE code_hash = ${inviteCodeHash(code)} AND email IS NOT NULL AND COALESCE(kind, 'email') = 'email'
+      AND used_at IS NULL AND expires_at > now()
+    LIMIT 1
+  ` as { id: string; email: string }[];
+  const invite = rows[0];
+  if (!invite) return { status: "invalid" };
+  if (await findUserByEmail(invite.email)) return { status: "existing" };
+
+  const claimed = await sql`
+    UPDATE folio_invites SET used_at = now()
+    WHERE id = ${invite.id} AND used_at IS NULL AND expires_at > now()
+    RETURNING id
+  ` as { id: string }[];
+  if (!claimed[0]) return { status: "invalid" };
+
+  let user: AuthenticatedUser;
+  try {
+    user = await createUser(invite.email);
+  } catch (error) {
+    await releaseInvite(invite.id).catch(() => undefined);
+    throw error;
+  }
+  await sql`UPDATE folio_users SET email_verified_at = COALESCE(email_verified_at, now()) WHERE id = ${user.id}`;
+  await recordInviteUser(invite.id, user.id);
+  return { status: "ok", userId: user.id };
+}
+
 export async function createGenericInvite(): Promise<{ code: string; expiresAt: string }> {
   await ensureSchema();
   const sql = await database();
