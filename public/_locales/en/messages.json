@@ -46,5 +46,12 @@
   "emptyNotesDescription": { "message": "One sentence is enough. Capture the thought you have now." },
   "exportNoComment": { "message": "No comment" },
   "exportSource": { "message": "Source" },
-  "exportedAt": { "message": "Exported" }
+  "exportedAt": { "message": "Exported" },
+  "editorDone": { "message": "Done" },
+  "editorSaved": { "message": "Autosaved" },
+  "editorEmpty": { "message": "Empty, not saved" },
+  "editorCount": { "message": "$1 chars" },
+  "editorTextLabel": { "message": "Note text" },
+  "openNote": { "message": "Open and edit note" },
+  "fullscreenEdit": { "message": "Fullscreen edit" }
 }

@@ -47,6 +47,13 @@ export const messageKeys = [
   "exportNoComment",
   "exportSource",
   "exportedAt",
+  "editorDone",
+  "editorSaved",
+  "editorEmpty",
+  "editorCount",
+  "editorTextLabel",
+  "openNote",
+  "fullscreenEdit",
 ] as const;
 
 export type MessageKey = (typeof messageKeys)[number];

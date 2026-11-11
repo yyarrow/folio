@@ -46,5 +46,12 @@
   "emptyNotesDescription": { "message": "一句话就够了，先写下此刻的想法。" },
   "exportNoComment": { "message": "无备注" },
   "exportSource": { "message": "来源" },
-  "exportedAt": { "message": "导出于" }
+  "exportedAt": { "message": "导出于" },
+  "editorDone": { "message": "完成" },
+  "editorSaved": { "message": "已自动保存" },
+  "editorEmpty": { "message": "内容为空，未保存" },
+  "editorCount": { "message": "$1 字" },
+  "editorTextLabel": { "message": "笔记内容" },
+  "openNote": { "message": "打开并编辑笔记" },
+  "fullscreenEdit": { "message": "全屏编辑" }
 }
