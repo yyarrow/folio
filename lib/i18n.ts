@@ -38,6 +38,9 @@ export const messageKeys = [
   "recent",
   "searchPlaceholder",
   "clearSearch",
+  "clearTagFilter",
+  "deletedToast",
+  "undo",
   "edit",
   "delete",
   "noMatchingNotes",
@@ -47,6 +50,14 @@ export const messageKeys = [
   "exportNoComment",
   "exportSource",
   "exportedAt",
+  "editorDone",
+  "editorSaved",
+  "editorEmpty",
+  "editorCount",
+  "editorTextLabel",
+  "openNote",
+  "fullscreenEdit",
+  "getDeviceCode",
 ] as const;
 
 export type MessageKey = (typeof messageKeys)[number];

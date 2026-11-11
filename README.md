@@ -19,11 +19,11 @@ Folio does not collect full page content. Notes stay local until cloud sync is e
 
 ## Desktop cloud sync
 
-Sign in at [folio.warmbeing.com](https://folio.warmbeing.com), open the account menu, and choose **Connect browser extension**. Enter the eight-character code in the extension menu and choose **Connect and sync**. The code expires after ten minutes and can be used once. The first sync merges existing notes from both sides; later saves, edits, and deletions sync automatically. Folio keeps working offline and reconciles changes when the connection returns.
+In the extension menu, choose **No code yet? Sign in on the web to get one** (or sign in at [folio.warmbeing.com](https://folio.warmbeing.com) yourself). Once signed in, the web app generates a connection code automatically; you can also generate one any time from the link icon in the top bar or **生成连接码** (Generate connection code) in the account menu, copy it, or regenerate it. Enter the eight-character code in the extension menu and choose **Connect and sync**. The code expires after ten minutes and can be used once. The first sync merges existing notes from both sides; later saves, edits, and deletions sync automatically. Folio keeps working offline and reconciles changes when the connection returns.
 
 ## Browser extension
 
-[Download the latest Chrome/Edge extension](https://github.com/yyarrow/folio/releases/latest/download/folio-extension.zip), unzip it, open `chrome://extensions`, enable **Developer mode**, and choose **Load unpacked**.
+Install Folio from the [Chrome Web Store](https://chromewebstore.google.com/detail/folio/ieicolnjeafcjmbndojijhmeechipbee). To test a local build instead, run `bun run build`, open `chrome://extensions`, enable **Developer mode**, choose **Load unpacked**, and select `output/chrome-mv3`.
 
 ## Android
 

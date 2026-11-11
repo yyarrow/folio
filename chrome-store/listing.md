@@ -2,9 +2,9 @@
 
 ## Package
 
-- Upload: `output/folio-0.4.1-chrome.zip`
+- Upload: `output/folio-0.5.1-chrome.zip`
 - Manifest version: 3
-- Version: 0.4.1
+- Version: 0.5.1
 - Default locale: English
 - Additional locale: Simplified Chinese (`zh_CN`)
 

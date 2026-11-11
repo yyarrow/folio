@@ -1,6 +1,6 @@
 import type { Note } from "./types";
 
-const TAG_PATTERN = /(?:^|\s)#([\p{L}\p{N}_-]+)/gu;
+const TAG_PATTERN = /(?<![\p{Script=Latin}\p{N}_&/#])#([\p{L}\p{N}_-]+)/gu;
 
 export function extractTags(content: string): string[] {
   const tags = new Set<string>();

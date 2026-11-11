@@ -1,6 +1,8 @@
 import "server-only";
 
 import type { Transporter } from "nodemailer";
+import type { Lang } from "./i18n";
+import { serverT } from "./server-messages";
 
 function appUrl(): string {
   if (process.env.APP_URL) return process.env.APP_URL.replace(/\/$/u, "");
@@ -37,12 +39,26 @@ async function deliver(to: string, subject: string, html: string): Promise<void>
   await transporter.sendMail({ from: process.env.EMAIL_FROM, to, subject, html });
 }
 
-export async function sendLoginEmail(email: string, token: string): Promise<string | undefined> {
+export async function sendLoginEmail(email: string, token: string, lang: Lang): Promise<string | undefined> {
   const url = `${appUrl()}/api/auth/verify?token=${encodeURIComponent(token)}`;
   await deliver(
     email,
-    "登录 Folio",
-    `<p>点击下面的链接登录 Folio：</p><p><a href="${url}">登录 Folio</a></p><p>链接将在 15 分钟后失效，且只能使用一次。如果不是你发起的请求，请忽略此邮件。</p>`,
+    serverT(lang, "email.login.subject"),
+    `<p>${serverT(lang, "email.login.intro")}</p><p><a href="${url}">${serverT(lang, "email.login.cta")}</a></p><p>${serverT(lang, "email.login.note")}</p>`,
+  );
+  return process.env.NODE_ENV === "production" ? undefined : url;
+}
+
+function escapeHtml(value: string): string {
+  return value.replace(/&/gu, "&amp;").replace(/</gu, "&lt;").replace(/>/gu, "&gt;").replace(/"/gu, "&quot;").replace(/'/gu, "&#39;");
+}
+
+export async function sendInviteEmail(email: string, code: string, lang: Lang): Promise<string | undefined> {
+  const url = `${appUrl()}/?invite=${encodeURIComponent(code)}`;
+  await deliver(
+    email,
+    serverT(lang, "email.invite.subject"),
+    `<p>${serverT(lang, "email.invite.intro")}</p><p style="font-size:24px;font-weight:600;letter-spacing:2px;font-family:monospace">${escapeHtml(code)}</p><p><a href="${escapeHtml(url)}" style="display:inline-block;padding:10px 18px;border-radius:8px;background:#111;color:#fff;text-decoration:none">${serverT(lang, "email.invite.cta")}</a></p><p>${escapeHtml(serverT(lang, "email.invite.note", { email }))}</p>`,
   );
   return process.env.NODE_ENV === "production" ? undefined : url;
 }

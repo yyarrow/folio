@@ -20,7 +20,7 @@
   "syncNow": { "message": "Sync now" },
   "disconnectCloud": { "message": "Disconnect cloud" },
   "connectCloud": { "message": "Connect Folio Cloud" },
-  "deviceCodePlaceholder": { "message": "Enter the code from the web app" },
+  "deviceCodePlaceholder": { "message": "Enter the connection code from the web" },
   "connecting": { "message": "Connecting…" },
   "connectAndSync": { "message": "Connect and sync" },
   "exportMarkdown": { "message": "Export Markdown" },
@@ -38,6 +38,9 @@
   "recent": { "message": "Recent" },
   "searchPlaceholder": { "message": "Search notes, pages, or tags" },
   "clearSearch": { "message": "Clear search" },
+  "clearTagFilter": { "message": "Clear tag filter" },
+  "deletedToast": { "message": "Note deleted" },
+  "undo": { "message": "Undo" },
   "edit": { "message": "Edit" },
   "delete": { "message": "Delete" },
   "noMatchingNotes": { "message": "No matching notes" },
@@ -46,5 +49,13 @@
   "emptyNotesDescription": { "message": "One sentence is enough. Capture the thought you have now." },
   "exportNoComment": { "message": "No comment" },
   "exportSource": { "message": "Source" },
-  "exportedAt": { "message": "Exported" }
+  "exportedAt": { "message": "Exported" },
+  "editorDone": { "message": "Done" },
+  "editorSaved": { "message": "Autosaved" },
+  "editorEmpty": { "message": "Empty, not saved" },
+  "editorCount": { "message": "$1 chars" },
+  "editorTextLabel": { "message": "Note text" },
+  "openNote": { "message": "Open and edit note" },
+  "fullscreenEdit": { "message": "Fullscreen edit" },
+  "getDeviceCode": { "message": "No code yet? Sign in on the web to get one ↗" }
 }

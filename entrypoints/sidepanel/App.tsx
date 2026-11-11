@@ -1,4 +1,5 @@
 import { type FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { renderMarkdown } from "../../lib/markdown";
 import { downloadExport } from "../../lib/export";
 import { t } from "../../lib/i18n";
 import { listNotes, removeNote, saveNote } from "../../lib/db";
@@ -17,9 +18,12 @@ import {
   matchesSearch,
 } from "../../lib/notes";
 import type { Note, PageContext } from "../../lib/types";
+import NoteEditor from "./NoteEditor";
 
 const MAX_SELECTION_LENGTH = 12_000;
+const CONNECT_PAGE_URL = "https://folio.warmbeing.com/?connect=extension";
 type SyncStatus = "local" | "syncing" | "synced" | "offline" | "error";
+type EditorTarget = { kind: "new" } | { kind: "note"; id: string };
 
 async function readPageContext(): Promise<PageContext> {
   const [tab] = await browser.tabs.query({ active: true, currentWindow: true });
@@ -61,7 +65,11 @@ export default function App() {
   const [content, setContent] = useState("");
   const [context, setContext] = useState<PageContext>({});
   const [query, setQuery] = useState("");
-  const [editingId, setEditingId] = useState<string | null>(null);
+  const [tagFilter, setTagFilter] = useState<string | null>(null);
+  const [pendingDelete, setPendingDelete] = useState<Note | null>(null);
+  const [editor, setEditor] = useState<EditorTarget | null>(null);
+  const [noteDraft, setNoteDraft] = useState("");
+  const [draftState, setDraftState] = useState<"saved" | "pending" | "empty">("saved");
   const [status, setStatus] = useState<"idle" | "saving" | "saved">("idle");
   const [showMenu, setShowMenu] = useState(false);
   const [ready, setReady] = useState(false);
@@ -70,6 +78,8 @@ export default function App() {
   const [deviceCode, setDeviceCode] = useState("");
   const [syncMessage, setSyncMessage] = useState("");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const legacyDraftRef = useRef(false);
+  const pendingDeleteRef = useRef<{ note: Note; timer: number } | null>(null);
 
   const refreshNotes = useCallback(async () => setNotes(await listNotes()), []);
   const refreshContext = useCallback(async () => setContext(await readPageContext()), []);
@@ -103,22 +113,38 @@ export default function App() {
 
   useEffect(() => {
     void (async () => {
-      const [draft, cloudConnected] = await Promise.all([
+      const [draft, cloudConnected, loadedNotes] = await Promise.all([
         loadDraft(),
         isCloudConnected(),
-        refreshNotes(),
+        listNotes(),
       ]);
+      setNotes(loadedNotes);
       setConnected(cloudConnected);
+      let openedEditor = false;
       if (draft) {
-        setContent(draft.content);
-        setContext(draft.context);
-        setEditingId(draft.editingId);
+        // Migrate drafts saved by the old "edit in composer" flow: reopen that
+        // note in the fullscreen editor (it autosaves) and clear the composer.
+        const legacyNote = draft.editingId ? loadedNotes.find((note) => note.id === draft.editingId) : undefined;
+        if (legacyNote && draft.content.trim() === legacyNote.content) {
+          await clearDraft();
+          await refreshContext();
+        } else if (legacyNote) {
+          setNoteDraft(draft.content);
+          setDraftState("pending");
+          setEditor({ kind: "note", id: legacyNote.id });
+          openedEditor = true;
+          legacyDraftRef.current = true;
+          await refreshContext();
+        } else {
+          setContent(draft.content);
+          setContext(draft.context);
+        }
       } else {
         await refreshContext();
       }
       if (cloudConnected) await runSync();
       setReady(true);
-      window.setTimeout(() => textareaRef.current?.focus(), 60);
+      if (!openedEditor) window.setTimeout(() => textareaRef.current?.focus(), 60);
     })();
   }, [refreshContext, refreshNotes, runSync]);
 
@@ -131,23 +157,26 @@ export default function App() {
   useEffect(() => {
     if (!ready) return;
     const timer = window.setTimeout(() => {
-      if (content.trim() || editingId) {
+      if (content.trim()) {
         void persistDraft({
           content,
           context,
-          editingId,
+          editingId: null,
           updatedAt: new Date().toISOString(),
         });
-      } else {
+      } else if (!legacyDraftRef.current) {
         void clearDraft();
       }
     }, 180);
     return () => window.clearTimeout(timer);
-  }, [content, context, editingId, ready]);
+  }, [content, context, ready]);
 
   const visibleNotes = useMemo(
-    () => notes.filter((note) => matchesSearch(note, query)),
-    [notes, query],
+    () => notes.filter((note) =>
+      note.id !== pendingDelete?.id
+      && (!tagFilter || note.tags.includes(tagFilter))
+      && matchesSearch(note, query)),
+    [notes, query, tagFilter, pendingDelete],
   );
   const tags = useMemo(() => extractTags(content), [content]);
   const canSave = Boolean(content.trim() || context.selection);
@@ -155,7 +184,6 @@ export default function App() {
   const resetComposer = useCallback(async () => {
     await clearDraft();
     setContent("");
-    setEditingId(null);
     setStatus("idle");
     await refreshContext();
     textareaRef.current?.focus();
@@ -165,15 +193,14 @@ export default function App() {
     if (!canSave || status === "saving") return;
     setStatus("saving");
     const now = new Date().toISOString();
-    const existing = editingId ? notes.find((note) => note.id === editingId) : undefined;
     const note: Note = {
-      id: existing?.id ?? crypto.randomUUID(),
+      id: crypto.randomUUID(),
       content: content.trim(),
       title: context.title,
       url: context.url,
       selection: context.selection,
       tags,
-      createdAt: existing?.createdAt ?? now,
+      createdAt: now,
       updatedAt: now,
     };
     await saveNote(note);
@@ -184,22 +211,110 @@ export default function App() {
     window.setTimeout(() => void resetComposer(), 420);
   }
 
-  function handleEdit(note: Note) {
-    setEditingId(note.id);
-    setContent(note.content);
-    setContext({ title: note.title, url: note.url, selection: note.selection });
-    setStatus("idle");
-    textareaRef.current?.focus();
-    window.scrollTo({ top: 0, behavior: "smooth" });
+  const editingNote = editor?.kind === "note" ? notes.find((note) => note.id === editor.id) : undefined;
+
+  function openEditor(target: EditorTarget) {
+    if (target.kind === "note") {
+      const note = notes.find((item) => item.id === target.id);
+      if (!note) return;
+      setNoteDraft(note.content);
+      setDraftState("saved");
+    }
+    setEditor(target);
   }
 
-  async function handleDelete(note: Note) {
-    if (!window.confirm(t("deleteConfirm"))) return;
+  async function saveNoteDraft(): Promise<boolean> {
+    if (!editingNote) return false;
+    const nextContent = noteDraft.trim();
+    if (nextContent === editingNote.content) return false;
+    if (!nextContent && !editingNote.selection) {
+      setDraftState("empty");
+      return false;
+    }
+    await saveNote({
+      ...editingNote,
+      content: nextContent,
+      tags: extractTags(nextContent),
+      updatedAt: new Date().toISOString(),
+    });
+    await refreshNotes();
+    if (legacyDraftRef.current) {
+      legacyDraftRef.current = false;
+      await clearDraft();
+    }
+    setDraftState("saved");
+    return true;
+  }
+
+  function closeEditor() {
+    if (editor?.kind === "note") {
+      void saveNoteDraft().then((changed) => {
+        if (changed && connected) void runSync();
+      });
+    }
+    setEditor(null);
+    if (!editor || editor.kind === "new") window.setTimeout(() => textareaRef.current?.focus(), 0);
+  }
+
+  useEffect(() => {
+    if (!editingNote) return;
+    if (noteDraft.trim() === editingNote.content) return;
+    setDraftState("pending");
+    const timer = window.setTimeout(() => void saveNoteDraft(), 700);
+    return () => window.clearTimeout(timer);
+    // saveNoteDraft reads the same state this effect depends on.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [noteDraft, editingNote]);
+
+  // Closing the side panel skips the debounce, so flush as soon as it is hidden.
+  const flushNoteDraftRef = useRef(saveNoteDraft);
+  flushNoteDraftRef.current = saveNoteDraft;
+  useEffect(() => {
+    const onHidden = () => { if (document.visibilityState === "hidden") void flushNoteDraftRef.current(); };
+    document.addEventListener("visibilitychange", onHidden);
+    return () => document.removeEventListener("visibilitychange", onHidden);
+  }, []);
+
+  async function commitDeletion(note: Note) {
     await removeNote(note.id);
-    if (editingId === note.id) await resetComposer();
     await refreshNotes();
     if (connected) await runSync();
   }
+  const commitDeletionRef = useRef(commitDeletion);
+  commitDeletionRef.current = commitDeletion;
+
+  function flushPendingDelete() {
+    const pending = pendingDeleteRef.current;
+    if (!pending) return;
+    window.clearTimeout(pending.timer);
+    pendingDeleteRef.current = null;
+    setPendingDelete(null);
+    void commitDeletionRef.current(pending.note);
+  }
+  const flushPendingDeleteRef = useRef(flushPendingDelete);
+  flushPendingDeleteRef.current = flushPendingDelete;
+
+  function handleDelete(note: Note) {
+    flushPendingDelete();
+    if (editor?.kind === "note" && editor.id === note.id) setEditor(null);
+    const timer = window.setTimeout(() => flushPendingDeleteRef.current(), 5000);
+    pendingDeleteRef.current = { note, timer };
+    setPendingDelete(note);
+  }
+
+  function undoDelete() {
+    const pending = pendingDeleteRef.current;
+    if (!pending) return;
+    window.clearTimeout(pending.timer);
+    pendingDeleteRef.current = null;
+    setPendingDelete(null);
+  }
+
+  useEffect(() => {
+    const onHidden = () => { if (document.visibilityState === "hidden") flushPendingDeleteRef.current(); };
+    document.addEventListener("visibilitychange", onHidden);
+    return () => document.removeEventListener("visibilitychange", onHidden);
+  }, []);
 
   async function handleConnect(event: FormEvent) {
     event.preventDefault();
@@ -273,6 +388,7 @@ export default function App() {
                   <button className="connect-button" disabled={!deviceCode.trim() || syncStatus === "syncing"}>
                     {syncStatus === "syncing" ? t("connecting") : t("connectAndSync")}
                   </button>
+                  <a className="connect-help" href={CONNECT_PAGE_URL} target="_blank" rel="noreferrer">{t("getDeviceCode")}</a>
                 </form>
               )}
               <div className="menu-divider" />
@@ -286,8 +402,7 @@ export default function App() {
 
       <section className="composer" aria-label={t("newNote")}>
         <div className="composer-heading">
-          <span>{editingId ? t("editNote") : t("captureMoment")}</span>
-          {editingId && <button className="text-button" onClick={() => void resetComposer()}>{t("cancel")}</button>}
+          <span>{t("captureMoment")}</span>
         </div>
 
         {(context.url || context.selection) && (
@@ -322,32 +437,57 @@ export default function App() {
             {tags.slice(0, 3).map((tag) => <span key={tag}>#{tag}</span>)}
             {!tags.length && <span className="hint">{t("tagHint")}</span>}
           </div>
-          <button className={`save-button ${status}`} disabled={!canSave || status === "saving"} onClick={() => void handleSave()}>
-            {status === "saving" ? t("saving") : status === "saved" ? t("saved") : t("save")}
-            {status === "idle" && <kbd>⌘↵</kbd>}
-          </button>
+          <div className="composer-actions">
+            <button className="expand-button" onClick={() => setEditor({ kind: "new" })} aria-label={t("fullscreenEdit")} title={t("fullscreenEdit")}>⤢</button>
+            <button className={`save-button ${status}`} disabled={!canSave || status === "saving"} onClick={() => void handleSave()}>
+              {status === "saving" ? t("saving") : status === "saved" ? t("saved") : t("save")}
+              {status === "idle" && <kbd>⌘↵</kbd>}
+            </button>
+          </div>
         </div>
       </section>
 
       <section className="library" aria-label={t("notes")}>
         <div className="library-heading">
           <h1>{t("recent")}</h1>
-          <span>{notes.length}</span>
+          <span>{notes.length - (pendingDelete ? 1 : 0)}</span>
         </div>
         <label className="search-field">
           <span>⌕</span>
           <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder={t("searchPlaceholder")} />
           {query && <button onClick={() => setQuery("")} aria-label={t("clearSearch")}>×</button>}
         </label>
+        {tagFilter && (
+          <button type="button" className="tag-filter" onClick={() => setTagFilter(null)} aria-label={t("clearTagFilter")}>
+            #{tagFilter} <span aria-hidden="true">×</span>
+          </button>
+        )}
 
         <div className="note-list">
           {visibleNotes.map((note) => (
             <article className="note-card" key={note.id}>
-              <div className="note-copy">
-                {note.content && <p>{note.content}</p>}
+              <div
+                className="note-body"
+                role="button"
+                tabIndex={0}
+                aria-label={t("openNote")}
+                onClick={(event) => {
+                  if ((event.target as HTMLElement).closest("a, button")) return;
+                  if (!window.getSelection()?.toString()) openEditor({ kind: "note", id: note.id });
+                }}
+                onKeyDown={(event) => {
+                  if (event.target === event.currentTarget && (event.key === "Enter" || event.key === " ")) {
+                    event.preventDefault();
+                    openEditor({ kind: "note", id: note.id });
+                  }
+                }}
+              >
+                {note.content && <div className="note-md">{renderMarkdown(note.content, { onTagClick: setTagFilter })}</div>}
                 {note.selection && <blockquote>{note.selection}</blockquote>}
+                {note.tags.length > 0 && <div className="note-tags">{note.tags.map((tag) => (
+                  <button type="button" key={tag} onClick={(event) => { event.stopPropagation(); setTagFilter(tag); }}>#{tag}</button>
+                ))}</div>}
               </div>
-              {note.tags.length > 0 && <div className="note-tags">{note.tags.map((tag) => <span key={tag}>#{tag}</span>)}</div>}
               <footer>
                 <div className="note-meta">
                   <time>{formatNoteDate(note.updatedAt)}</time>
@@ -358,8 +498,8 @@ export default function App() {
                   )}
                 </div>
                 <div className="note-actions">
-                  <button onClick={() => handleEdit(note)}>{t("edit")}</button>
-                  <button className="danger" onClick={() => void handleDelete(note)}>{t("delete")}</button>
+                  <button onClick={() => openEditor({ kind: "note", id: note.id })}>{t("edit")}</button>
+                  <button className="danger" onClick={() => handleDelete(note)}>{t("delete")}</button>
                 </div>
               </footer>
             </article>
@@ -368,12 +508,45 @@ export default function App() {
           {!visibleNotes.length && (
             <div className="empty-state">
               <FolioMark />
-              <strong>{query ? t("noMatchingNotes") : t("noNotes")}</strong>
-              <p>{query ? t("tryDifferentSearch") : t("emptyNotesDescription")}</p>
+              <strong>{query || tagFilter ? t("noMatchingNotes") : t("noNotes")}</strong>
+              <p>{query || tagFilter ? t("tryDifferentSearch") : t("emptyNotesDescription")}</p>
             </div>
           )}
         </div>
       </section>
+
+      {pendingDelete && (
+        <div className="undo-toast" role="status">
+          <span>{t("deletedToast")}</span>
+          <button type="button" onClick={undoDelete}>{t("undo")}</button>
+        </div>
+      )}
+
+      {editor?.kind === "new" && (
+        <NoteEditor
+          heading={t("newNote")}
+          value={content}
+          context={context}
+          placeholder={t("composerPlaceholder")}
+          onChange={(value) => { setContent(value); setStatus("idle"); }}
+          onClose={closeEditor}
+          onSubmit={() => { closeEditor(); void handleSave(); }}
+          submitLabel={t("save")}
+          submitDisabled={!canSave || status === "saving"}
+        />
+      )}
+      {editingNote && (
+        <NoteEditor
+          heading={formatNoteDate(editingNote.createdAt)}
+          status={draftState === "pending" ? t("saving") : draftState === "empty" ? t("editorEmpty") : t("editorSaved")}
+          value={noteDraft}
+          context={editingNote}
+          placeholder={t("composerPlaceholder")}
+          onChange={setNoteDraft}
+          onClose={closeEditor}
+          onDelete={() => handleDelete(editingNote)}
+        />
+      )}
     </main>
   );
 }
