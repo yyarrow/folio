@@ -1,6 +1,6 @@
 import type { PageContext, SharedContext } from "./types";
 
-const TAG_PATTERN = /(?:^|\s)#([\p{L}\p{N}_-]+)/gu;
+const TAG_PATTERN = /(?<![\p{Script=Latin}\p{N}_&/#])#([\p{L}\p{N}_-]+)/gu;
 const URL_PATTERN = /https?:\/\/[^\s<>"']+/iu;
 
 export function extractTags(content: string): string[] {
