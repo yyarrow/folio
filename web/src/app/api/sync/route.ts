@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { requestT } from "@/lib/server-messages";
 import { authenticateRequest } from "@/lib/auth";
 import { extensionCorsHeaders } from "@/lib/cors";
 import { syncNotes } from "@/lib/store";
@@ -9,6 +10,7 @@ export function OPTIONS(request: Request) {
 }
 
 export async function POST(request: Request) {
+  const t = requestT(request);
   const headers = extensionCorsHeaders(request);
   const user = await authenticateRequest(request);
   if (!user) {
@@ -17,13 +19,13 @@ export async function POST(request: Request) {
 
   const state = parseSyncState(await request.json().catch(() => null));
   if (!state) {
-    return NextResponse.json({ error: "同步数据无效。" }, { status: 400, headers });
+    return NextResponse.json({ error: t("api.invalidSyncData") }, { status: 400, headers });
   }
 
   try {
     return NextResponse.json(await syncNotes(user.id, state), { headers });
   } catch (error) {
     console.error(error);
-    return NextResponse.json({ error: "暂时无法同步。" }, { status: 503, headers });
+    return NextResponse.json({ error: t("api.syncFailed") }, { status: 503, headers });
   }
 }

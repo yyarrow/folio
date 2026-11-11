@@ -1,15 +1,21 @@
+import { cookies, headers } from "next/headers";
 import Link from "next/link";
+import { LANG_COOKIE, pickLang } from "@/lib/i18n";
 
 export const metadata = {
   title: "Privacy & Data · Folio",
   description: "Folio privacy and data practices · Folio 隐私与数据说明。",
 };
 
-export default function PrivacyPage() {
+export default async function PrivacyPage() {
+  const [headerList, cookieStore] = await Promise.all([headers(), cookies()]);
+  const lang = pickLang(headerList.get("accept-language"), cookieStore.get(LANG_COOKIE)?.value);
   return (
     <main className="legal-shell">
       <article className="legal-card">
         <Link href="/" className="legal-brand">← Folio</Link>
+        {lang === "zh" ? (
+          <>
         <p className="eyebrow">Every idea matters.</p>
         <h1>隐私与数据</h1>
         <p>Folio Local 无需账号，笔记默认只保存在你的设备中。只有在你主动连接 Folio Cloud 后，相关数据才会上传用于跨设备同步。Folio 不投放广告，也不出售个人信息。</p>
@@ -29,9 +35,10 @@ export default function PrivacyPage() {
 
         <h2>Chrome 网上应用店有限使用承诺</h2>
         <p>Folio 对通过 Google API（包括 Chrome API）获得的信息的使用与传输将遵守 Chrome Web Store User Data Policy，包括 Limited Use 要求。Folio 仅将这些数据用于提供用户主动使用的记录与同步功能，不用于广告、信用评估或出售给第三方，也不允许人工读取，除非获得用户对特定支持请求的明确同意，或法律与安全义务另有要求。</p>
-
-        <hr />
-
+            <small>更新日期：2026 年 8 月 27 日</small>
+          </>
+        ) : (
+          <>
         <p className="eyebrow">Every idea matters.</p>
         <h1>Privacy &amp; Data</h1>
         <p>Folio Local does not require an account. Notes are stored on your device by default. Data is uploaded for cross-device sync only after you explicitly connect Folio Cloud. Folio does not serve ads or sell personal information.</p>
@@ -50,7 +57,9 @@ export default function PrivacyPage() {
 
         <h2>Contact</h2>
         <p>For questions about data handling, contact <a href="mailto:official@warmbeing.com">official@warmbeing.com</a>.</p>
-        <small>Last updated / 更新日期：August 27, 2026 · 2026 年 8 月 27 日</small>
+            <small>Last updated: August 27, 2026</small>
+          </>
+        )}
       </article>
     </main>
   );

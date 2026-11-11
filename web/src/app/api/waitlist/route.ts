@@ -1,21 +1,23 @@
 import { randomBytes } from "node:crypto";
 import { NextResponse } from "next/server";
+import { requestT } from "@/lib/server-messages";
 import { checkRateLimit, isAuthConfigured, isEmail, isSameOrigin, normalizeEmail } from "@/lib/auth";
 import { database, ensureSchema } from "@/lib/db";
 import { parseWaitlistNote } from "@/lib/invites";
 
 export async function POST(request: Request) {
+  const t = requestT(request);
   if (!isSameOrigin(request)) {
-    return NextResponse.json({ error: "请求来源无效。" }, { status: 403 });
+    return NextResponse.json({ error: t("api.invalidOrigin") }, { status: 403 });
   }
   if (!isAuthConfigured()) {
-    return NextResponse.json({ error: "Folio 登录尚未配置。" }, { status: 503 });
+    return NextResponse.json({ error: t("api.authNotConfigured") }, { status: 503 });
   }
 
   const body = await request.json().catch(() => null) as { email?: unknown; note?: unknown } | null;
   const email = normalizeEmail(body?.email);
   if (!isEmail(email)) {
-    return NextResponse.json({ error: "请输入有效邮箱。" }, { status: 400 });
+    return NextResponse.json({ error: t("api.invalidEmail") }, { status: 400 });
   }
   const note = parseWaitlistNote(body?.note);
 
@@ -25,7 +27,7 @@ export async function POST(request: Request) {
     checkRateLimit("waitlist-email", email, 3, 60 * 60),
   ]);
   if (!allowedByIp || !allowedByEmail) {
-    return NextResponse.json({ error: "请求过于频繁，请稍后再试。" }, { status: 429 });
+    return NextResponse.json({ error: t("api.rateLimited") }, { status: 429 });
   }
 
   try {
@@ -39,6 +41,6 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: true });
   } catch (error) {
     console.error("waitlist failed", error);
-    return NextResponse.json({ error: "暂时无法提交申请，请稍后再试。" }, { status: 503 });
+    return NextResponse.json({ error: t("api.waitlistFailed") }, { status: 503 });
   }
 }
